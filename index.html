@@ -1408,7 +1408,7 @@ const syncLbl=document.getElementById('sync-lbl');
 
 onValue(movRef,snap=>{
   registros=[];snap.forEach(c=>registros.push({...c.val(),key:c.key}));
-  registros.sort((a,b)=>b.fecha.localeCompare(a.fecha)||(b.ts||0)-(a.ts||0));
+  registros.sort((a,b)=>((b.fecha||'').localeCompare(a.fecha||''))||((b.ts||0)-(a.ts||0)));
   syncDot.classList.add('online');
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
