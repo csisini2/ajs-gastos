@@ -641,7 +641,7 @@ tr:hover td{background:var(--bg3)}
       <button class="sec-tab active" onclick="showSec('maq-gasoil',this);renderMaqGasoil()">Cargas de gasoil</button>
       <button class="sec-tab" onclick="showSec('maq-mant',this);renderMaqMant()">Mantenimiento</button>
     </div>
-    <div id="maq-gasoil"><div id="maq-gasoil-content"><div class="loading"><div class="dot-pulse"><span></span><span></span><span></span></div></div></div></div>
+    <div id="maq-gasoil"><div style="margin-bottom:12px"><button id="btn-sync-maq" class="btn-blue btn-sm" onclick="sincronizarMaquinaria()">⟳ Sincronizar gastos de gasoil</button></div><div id="maq-gasoil-content"></div></div>
     <div id="maq-mant" style="display:none"><div id="maq-mant-content"><div class="loading"><div class="dot-pulse"><span></span><span></span><span></span></div></div></div></div>
   </div>
 </div>
@@ -1415,8 +1415,6 @@ onValue(movRef,snap=>{
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
   const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte};
   if(fn[id]) fn[id]();
-  // iniciar maquinaria solo la primera vez
-  if(!movCargados){ movCargados=true; procesarMaquinaria(); }
 },()=>{ syncDot.style.background='var(--red)'; syncLbl.textContent='sin conexión'; });
 
 onValue(remitosRef,snap=>{ remitos=[]; snap.forEach(c=>remitos.push({...c.val(),key:c.key})); remitos.sort((a,b)=>b.fecha.localeCompare(a.fecha)); if(document.getElementById('panel-cosecha').classList.contains('active')) renderRemitos(); });
@@ -1427,59 +1425,49 @@ onValue(insRef,snap=>{ insumos=[]; snap.forEach(c=>insumos.push({...c.val(),key:
 onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>adelantos.push({...c.val(),key:c.key})); adelantos.sort((a,b)=>b.fecha.localeCompare(a.fecha)); });
 
 // MAQUINARIA LISTENERS
-// MAQUINARIA - conexión completa
-const maqProcesados=new Set();
-let movCargados=false;
-
-// Cuando movimientos esté listo, procesar maquinaria
-function procesarMaquinaria(){
-  if(!movCargados) return;
-  // cargar registros de maquinaria
-  get(ref(dbMaq,'registros')).then(snap=>{
-    maqGasoil=[];
-    snap.forEach(c=>{
-      const d=c.val();
-      maqGasoil.push({...d,key:c.key,equipo:d.equipoId,monto:d.costo});
-      if(d.origen==='estacion') maqProcesados.add(c.key); // marcar existentes
-    });
-    document.getElementById('maq-status').className='alert alert-ok';
-    document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
-    if(document.getElementById('panel-maquinaria').classList.contains('active')) renderMaqGasoil();
-    // marcar también los que ya están en AJS Gastos
-    registros.forEach(r=>{ if(r.maqKey) maqProcesados.add(r.maqKey); });
-    // ahora escuchar nuevos
-    onChildAdded(ref(dbMaq,'registros'),async snap=>{
-      const d=snap.val(); const key=snap.key;
-      if(!maqGasoil.find(x=>x.key===key)){
-        maqGasoil.push({...d,key,equipo:d.equipoId,monto:d.costo});
-        document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
-      }
-      if(d.origen==='estacion'&&!maqProcesados.has(key)){
-        maqProcesados.add(key);
-        await push(movRef,{
-          tipo:'gasto',fecha:d.fecha||today(),
-          detalle:`Gasoil ${d.equipoId||''} · ${d.litros||''} lts`,
-          resp:'CARLOS',unidad:'U1',cat:'Campo/combustible',
-          subdet:d.equipoId||'',monto:parseInt(d.costo)||0,
-          metodo:'Efectivo',estado:'Pagado',
-          obs:`Carga estación · ${d.litros||''} lts · importado de maquinaria`,
-          maqKey:key,ts:serverTimestamp()
-        });
-        // forzar re-render del panel activo
-        const snap2=await get(movRef);
-        registros=[];
-        snap2.forEach(c=>registros.push({...c.val(),key:c.key}));
-        registros.sort((a,b)=>((b.fecha||'').localeCompare(a.fecha||''))||((b.ts||0)-(a.ts||0)));
-        syncLbl.textContent=`en línea · ${registros.length} registros`;
-        updateBalance();
-        const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-        const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte};
-        if(fn[id]) fn[id]();
-      }
-    });
+// MAQUINARIA - lectura simple sin auto-sync
+get(ref(dbMaq,'registros')).then(snap=>{
+  maqGasoil=[];
+  snap.forEach(c=>{
+    const d=c.val();
+    maqGasoil.push({...d,key:c.key,equipo:d.equipoId,monto:d.costo});
   });
-}
+  document.getElementById('maq-status').className='alert alert-ok';
+  document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
+  if(document.getElementById('panel-maquinaria').classList.contains('active')) renderMaqGasoil();
+});
 onValue(ref(dbMaq,'mantenimiento'),snap=>{ maqMant=[]; snap.forEach(c=>maqMant.push({...c.val(),key:c.key})); });
+
+// SINCRONIZAR MANUALMENTE
+window.sincronizarMaquinaria = async () => {
+  const btn=document.getElementById('btn-sync-maq');
+  btn.textContent='Sincronizando...'; btn.disabled=true;
+  try{
+    const movSnap=await get(movRef);
+    const keysExistentes=new Set();
+    movSnap.forEach(c=>{ if(c.val().maqKey) keysExistentes.add(c.val().maqKey); });
+    let nuevos=0;
+    for(const r of maqGasoil){
+      if(r.origen==='estacion'&&!keysExistentes.has(r.key)){
+        await push(movRef,{
+          tipo:'gasto',fecha:r.fecha||today(),
+          detalle:`Gasoil ${r.equipoId||''} · ${r.litros||''} lts`,
+          resp:'CARLOS',unidad:'U1',cat:'Campo/combustible',
+          subdet:r.equipoId||'',monto:parseInt(r.costo)||0,
+          metodo:'Efectivo',estado:'Pagado',
+          obs:`Carga estación · ${r.litros||''} lts · importado de maquinaria`,
+          maqKey:r.key,ts:serverTimestamp()
+        });
+        nuevos++;
+      }
+    }
+    btn.textContent=nuevos>0?`✓ ${nuevos} gasto${nuevos>1?'s':''} importado${nuevos>1?'s':''}`:'✓ Todo al día';
+    setTimeout(()=>{ btn.textContent='⟳ Sincronizar gastos de gasoil'; btn.disabled=false; },3000);
+  }catch(e){
+    btn.textContent='Error al sincronizar';
+    setTimeout(()=>{ btn.textContent='⟳ Sincronizar gastos de gasoil'; btn.disabled=false; },3000);
+  }
+};
 
 function updateBalance(){
   const ing=registros.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+r.monto,0);
