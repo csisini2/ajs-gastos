@@ -1461,8 +1461,16 @@ window.sincronizarMaquinaria = async () => {
         nuevos++;
       }
     }
+    // recargar registros frescos de Firebase y re-renderizar
+    const movSnapFresh=await get(movRef);
+    registros=[];
+    movSnapFresh.forEach(c=>registros.push({...c.val(),key:c.key}));
+    registros.sort((a,b)=>((b.fecha||'').localeCompare(a.fecha||''))||((b.ts||0)-(a.ts||0)));
+    syncLbl.textContent=`en línea · ${registros.length} registros`;
+    updateBalance();
+    renderDash();
+    renderHist();
     btn.textContent=nuevos>0?`✓ ${nuevos} gasto${nuevos>1?'s':''} importado${nuevos>1?'s':''}`:'✓ Todo al día';
-if(nuevos>0){ setTimeout(()=>{ renderDash(); renderHist(); },1500); }
     setTimeout(()=>{ btn.textContent='⟳ Sincronizar gastos de gasoil'; btn.disabled=false; },3000);
   }catch(e){
     btn.textContent='Error al sincronizar';
