@@ -1425,36 +1425,33 @@ onValue(insRef,snap=>{ insumos=[]; snap.forEach(c=>insumos.push({...c.val(),key:
 onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>adelantos.push({...c.val(),key:c.key})); adelantos.sort((a,b)=>b.fecha.localeCompare(a.fecha)); });
 
 // MAQUINARIA LISTENERS
-const maqProcesados=new Set();
 onValue(ref(dbMaq,'registros'),async snap=>{
   maqGasoil=[];
   const items=[];
   snap.forEach(c=>items.push({key:c.key,data:c.val()}));
+  // Obtener todos los movimientos existentes una sola vez
+  const movSnap=await get(movRef);
+  const maqKeysExistentes=new Set();
+  movSnap.forEach(c=>{ if(c.val().maqKey) maqKeysExistentes.add(c.val().maqKey); });
   for(const {key,data:d} of items){
     maqGasoil.push({...d,key,equipo:d.equipoId,monto:d.costo,descripcion:d.desc});
-    if(d.origen==='estacion'&&!maqProcesados.has(key)){
-      maqProcesados.add(key);
-      // check if already registered
-      const movSnap=await get(movRef);
-      let yaExiste=false;
-      movSnap.forEach(c=>{ if(c.val().maqKey===key) yaExiste=true; });
-      if(!yaExiste){
-        await push(movRef,{
-          tipo:'gasto',
-          fecha:d.fecha||today(),
-          detalle:`Gasoil ${d.equipoId||''} · ${d.litros||''} lts`,
-          resp:'CARLOS',
-          unidad:'U1',
-          cat:'Campo/combustible',
-          subdet:d.equipoId||'',
-          monto:parseInt(d.costo)||0,
-          metodo:'Efectivo',
-          estado:'Pagado',
-          obs:`Carga estación · ${d.litros||''} lts · importado de maquinaria`,
-          maqKey:key,
-          ts:serverTimestamp()
-        });
-      }
+    if(d.origen==='estacion'&&!maqKeysExistentes.has(key)){
+      maqKeysExistentes.add(key); // evitar doble push en misma ejecución
+      await push(movRef,{
+        tipo:'gasto',
+        fecha:d.fecha||today(),
+        detalle:`Gasoil ${d.equipoId||''} · ${d.litros||''} lts`,
+        resp:'CARLOS',
+        unidad:'U1',
+        cat:'Campo/combustible',
+        subdet:d.equipoId||'',
+        monto:parseInt(d.costo)||0,
+        metodo:'Efectivo',
+        estado:'Pagado',
+        obs:`Carga estación · ${d.litros||''} lts · importado de maquinaria`,
+        maqKey:key,
+        ts:serverTimestamp()
+      });
     }
   }
   document.getElementById('maq-status').className='alert alert-ok';
