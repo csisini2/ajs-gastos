@@ -1435,7 +1435,6 @@ onValue(ref(dbMaq,'registros'),snap=>{
     // Auto-registro como gasto si es compra en estación y no fue procesado antes
     if(d.origen==='estacion'&&!maqProcesados.has(c.key)){
       maqProcesados.add(c.key);
-      // Verificar si ya existe en movimientos para no duplicar
       const yaExiste=registros.some(r=>r.maqKey===c.key);
       if(!yaExiste){
         push(movRef,{
@@ -1459,11 +1458,7 @@ onValue(ref(dbMaq,'registros'),snap=>{
   document.getElementById('maq-status').className='alert alert-ok';
   document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
 });
-    });
-  });
-  document.getElementById('maq-status').className='alert alert-ok';
-  document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
-});
+onValue(ref(dbMaq,'mantenimiento'),snap=>{ maqMant=[]; snap.forEach(c=>maqMant.push({...c.val(),key:c.key})); });
 
 function updateBalance(){
   const ing=registros.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+r.monto,0);
