@@ -679,7 +679,7 @@ tr:hover td{background:var(--bg3)}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, push, set, get, onValue, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, push, set, get, onValue, onChildAdded, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 // APP PRINCIPAL - AJS GASTOS
 const cfgGastos = {
@@ -1425,23 +1425,29 @@ onValue(insRef,snap=>{ insumos=[]; snap.forEach(c=>insumos.push({...c.val(),key:
 onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>adelantos.push({...c.val(),key:c.key})); adelantos.sort((a,b)=>b.fecha.localeCompare(a.fecha)); });
 
 // MAQUINARIA LISTENERS
-// Listener maquinaria - se ejecuta cada vez que hay cambios en maquinaria
-// pero procesa gastos de forma controlada
-let maqListenerActivo=false;
-onValue(ref(dbMaq,'registros'),async snap=>{
-  if(maqListenerActivo) return;
-  maqListenerActivo=true;
+// MAQUINARIA - leer registros existentes una sola vez
+get(ref(dbMaq,'registros')).then(snap=>{
   maqGasoil=[];
-  const items=[];
-  snap.forEach(c=>items.push({key:c.key,data:c.val()}));
-  // Obtener keys ya registradas en AJS Gastos
-  const movSnap=await get(movRef);
-  const maqKeysExistentes=new Set();
-  movSnap.forEach(c=>{ if(c.val().maqKey) maqKeysExistentes.add(c.val().maqKey); });
-  for(const {key,data:d} of items){
-    maqGasoil.push({...d,key,equipo:d.equipoId,monto:d.costo,descripcion:d.desc});
-    if(d.origen==='estacion'&&!maqKeysExistentes.has(key)){
-      maqKeysExistentes.add(key);
+  snap.forEach(c=>maqGasoil.push({...c.val(),key:c.key,equipo:c.val().equipoId,monto:c.val().costo}));
+  document.getElementById('maq-status').className='alert alert-ok';
+  document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
+  if(document.getElementById('panel-maquinaria').classList.contains('active')) renderMaqGasoil();
+});
+
+// Detectar SOLO registros nuevos en maquinaria y registrarlos como gasto
+const maqProcesados=new Set();
+// Primero cargar keys ya existentes en AJS Gastos
+get(movRef).then(movSnap=>{
+  movSnap.forEach(c=>{ if(c.val().maqKey) maqProcesados.add(c.val().maqKey); });
+  // Ahora escuchar solo nuevos registros en maquinaria
+  onChildAdded(ref(dbMaq,'registros'),async snap=>{
+    const d=snap.val(); const key=snap.key;
+    if(!maqGasoil.find(x=>x.key===key)){
+      maqGasoil.push({...d,key,equipo:d.equipoId,monto:d.costo});
+      document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
+    }
+    if(d.origen==='estacion'&&!maqProcesados.has(key)){
+      maqProcesados.add(key);
       await push(movRef,{
         tipo:'gasto',
         fecha:d.fecha||today(),
@@ -1458,11 +1464,9 @@ onValue(ref(dbMaq,'registros'),async snap=>{
         ts:serverTimestamp()
       });
     }
-  }
-  document.getElementById('maq-status').className='alert alert-ok';
-  document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
-  maqListenerActivo=false;
+  });
 });
+onValue(ref(dbMaq,'mantenimiento'),snap=>{ maqMant=[]; snap.forEach(c=>maqMant.push({...c.val(),key:c.key})); });
 onValue(ref(dbMaq,'mantenimiento'),snap=>{ maqMant=[]; snap.forEach(c=>maqMant.push({...c.val(),key:c.key})); });
 
 function updateBalance(){
