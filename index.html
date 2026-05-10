@@ -679,7 +679,7 @@ tr:hover td{background:var(--bg3)}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, push, set, onValue, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, push, set, get, onValue, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 // APP PRINCIPAL - AJS GASTOS
 const cfgGastos = {
@@ -1426,18 +1426,20 @@ onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>adelantos.push({...c.
 
 // MAQUINARIA LISTENERS
 const maqProcesados=new Set();
-onValue(ref(dbMaq,'registros'),snap=>{
+onValue(ref(dbMaq,'registros'),async snap=>{
   maqGasoil=[];
-  snap.forEach(c=>{
-    const d=c.val();
-    const item={...d,key:c.key,equipo:d.equipoId,monto:d.costo,descripcion:d.desc};
-    maqGasoil.push(item);
-    // Auto-registro como gasto si es compra en estación y no fue procesado antes
-    if(d.origen==='estacion'&&!maqProcesados.has(c.key)){
-      maqProcesados.add(c.key);
-      const yaExiste=registros.some(r=>r.maqKey===c.key);
+  const items=[];
+  snap.forEach(c=>items.push({key:c.key,data:c.val()}));
+  for(const {key,data:d} of items){
+    maqGasoil.push({...d,key,equipo:d.equipoId,monto:d.costo,descripcion:d.desc});
+    if(d.origen==='estacion'&&!maqProcesados.has(key)){
+      maqProcesados.add(key);
+      // check if already registered
+      const movSnap=await get(movRef);
+      let yaExiste=false;
+      movSnap.forEach(c=>{ if(c.val().maqKey===key) yaExiste=true; });
       if(!yaExiste){
-        push(movRef,{
+        await push(movRef,{
           tipo:'gasto',
           fecha:d.fecha||today(),
           detalle:`Gasoil ${d.equipoId||''} · ${d.litros||''} lts`,
@@ -1449,12 +1451,12 @@ onValue(ref(dbMaq,'registros'),snap=>{
           metodo:'Efectivo',
           estado:'Pagado',
           obs:`Carga estación · ${d.litros||''} lts · importado de maquinaria`,
-          maqKey:c.key,
+          maqKey:key,
           ts:serverTimestamp()
         });
       }
     }
-  });
+  }
   document.getElementById('maq-status').className='alert alert-ok';
   document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
 });
