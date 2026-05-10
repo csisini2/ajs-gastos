@@ -1465,6 +1465,16 @@ function procesarMaquinaria(){
           obs:`Carga estación · ${d.litros||''} lts · importado de maquinaria`,
           maqKey:key,ts:serverTimestamp()
         });
+        // forzar re-render del panel activo
+        const snap2=await get(movRef);
+        registros=[];
+        snap2.forEach(c=>registros.push({...c.val(),key:c.key}));
+        registros.sort((a,b)=>((b.fecha||'').localeCompare(a.fecha||''))||((b.ts||0)-(a.ts||0)));
+        syncLbl.textContent=`en línea · ${registros.length} registros`;
+        updateBalance();
+        const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
+        const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte};
+        if(fn[id]) fn[id]();
       }
     });
   });
