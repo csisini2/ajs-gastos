@@ -1415,6 +1415,8 @@ onValue(movRef,snap=>{
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
   const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte};
   if(fn[id]) fn[id]();
+  // iniciar maquinaria solo la primera vez
+  if(!movCargados){ movCargados=true; procesarMaquinaria(); }
 },()=>{ syncDot.style.background='var(--red)'; syncLbl.textContent='sin conexión'; });
 
 onValue(remitosRef,snap=>{ remitos=[]; snap.forEach(c=>remitos.push({...c.val(),key:c.key})); remitos.sort((a,b)=>b.fecha.localeCompare(a.fecha)); if(document.getElementById('panel-cosecha').classList.contains('active')) renderRemitos(); });
@@ -1425,48 +1427,48 @@ onValue(insRef,snap=>{ insumos=[]; snap.forEach(c=>insumos.push({...c.val(),key:
 onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>adelantos.push({...c.val(),key:c.key})); adelantos.sort((a,b)=>b.fecha.localeCompare(a.fecha)); });
 
 // MAQUINARIA LISTENERS
-// MAQUINARIA - leer registros existentes una sola vez
-get(ref(dbMaq,'registros')).then(snap=>{
-  maqGasoil=[];
-  snap.forEach(c=>maqGasoil.push({...c.val(),key:c.key,equipo:c.val().equipoId,monto:c.val().costo}));
-  document.getElementById('maq-status').className='alert alert-ok';
-  document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
-  if(document.getElementById('panel-maquinaria').classList.contains('active')) renderMaqGasoil();
-});
-
-// Detectar SOLO registros nuevos en maquinaria y registrarlos como gasto
+// MAQUINARIA - conexión completa
 const maqProcesados=new Set();
-// Primero cargar keys ya existentes en AJS Gastos
-get(movRef).then(movSnap=>{
-  movSnap.forEach(c=>{ if(c.val().maqKey) maqProcesados.add(c.val().maqKey); });
-  // Ahora escuchar solo nuevos registros en maquinaria
-  onChildAdded(ref(dbMaq,'registros'),async snap=>{
-    const d=snap.val(); const key=snap.key;
-    if(!maqGasoil.find(x=>x.key===key)){
-      maqGasoil.push({...d,key,equipo:d.equipoId,monto:d.costo});
-      document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
-    }
-    if(d.origen==='estacion'&&!maqProcesados.has(key)){
-      maqProcesados.add(key);
-      await push(movRef,{
-        tipo:'gasto',
-        fecha:d.fecha||today(),
-        detalle:`Gasoil ${d.equipoId||''} · ${d.litros||''} lts`,
-        resp:'CARLOS',
-        unidad:'U1',
-        cat:'Campo/combustible',
-        subdet:d.equipoId||'',
-        monto:parseInt(d.costo)||0,
-        metodo:'Efectivo',
-        estado:'Pagado',
-        obs:`Carga estación · ${d.litros||''} lts · importado de maquinaria`,
-        maqKey:key,
-        ts:serverTimestamp()
-      });
-    }
+let movCargados=false;
+
+// Cuando movimientos esté listo, procesar maquinaria
+function procesarMaquinaria(){
+  if(!movCargados) return;
+  // cargar registros de maquinaria
+  get(ref(dbMaq,'registros')).then(snap=>{
+    maqGasoil=[];
+    snap.forEach(c=>{
+      const d=c.val();
+      maqGasoil.push({...d,key:c.key,equipo:d.equipoId,monto:d.costo});
+      if(d.origen==='estacion') maqProcesados.add(c.key); // marcar existentes
+    });
+    document.getElementById('maq-status').className='alert alert-ok';
+    document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
+    if(document.getElementById('panel-maquinaria').classList.contains('active')) renderMaqGasoil();
+    // marcar también los que ya están en AJS Gastos
+    registros.forEach(r=>{ if(r.maqKey) maqProcesados.add(r.maqKey); });
+    // ahora escuchar nuevos
+    onChildAdded(ref(dbMaq,'registros'),async snap=>{
+      const d=snap.val(); const key=snap.key;
+      if(!maqGasoil.find(x=>x.key===key)){
+        maqGasoil.push({...d,key,equipo:d.equipoId,monto:d.costo});
+        document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
+      }
+      if(d.origen==='estacion'&&!maqProcesados.has(key)){
+        maqProcesados.add(key);
+        await push(movRef,{
+          tipo:'gasto',fecha:d.fecha||today(),
+          detalle:`Gasoil ${d.equipoId||''} · ${d.litros||''} lts`,
+          resp:'CARLOS',unidad:'U1',cat:'Campo/combustible',
+          subdet:d.equipoId||'',monto:parseInt(d.costo)||0,
+          metodo:'Efectivo',estado:'Pagado',
+          obs:`Carga estación · ${d.litros||''} lts · importado de maquinaria`,
+          maqKey:key,ts:serverTimestamp()
+        });
+      }
+    });
   });
-});
-onValue(ref(dbMaq,'mantenimiento'),snap=>{ maqMant=[]; snap.forEach(c=>maqMant.push({...c.val(),key:c.key})); });
+}
 onValue(ref(dbMaq,'mantenimiento'),snap=>{ maqMant=[]; snap.forEach(c=>maqMant.push({...c.val(),key:c.key})); });
 
 function updateBalance(){
