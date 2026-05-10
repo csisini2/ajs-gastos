@@ -1425,18 +1425,23 @@ onValue(insRef,snap=>{ insumos=[]; snap.forEach(c=>insumos.push({...c.val(),key:
 onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>adelantos.push({...c.val(),key:c.key})); adelantos.sort((a,b)=>b.fecha.localeCompare(a.fecha)); });
 
 // MAQUINARIA LISTENERS
+// Listener maquinaria - se ejecuta cada vez que hay cambios en maquinaria
+// pero procesa gastos de forma controlada
+let maqListenerActivo=false;
 onValue(ref(dbMaq,'registros'),async snap=>{
+  if(maqListenerActivo) return;
+  maqListenerActivo=true;
   maqGasoil=[];
   const items=[];
   snap.forEach(c=>items.push({key:c.key,data:c.val()}));
-  // Obtener todos los movimientos existentes una sola vez
+  // Obtener keys ya registradas en AJS Gastos
   const movSnap=await get(movRef);
   const maqKeysExistentes=new Set();
   movSnap.forEach(c=>{ if(c.val().maqKey) maqKeysExistentes.add(c.val().maqKey); });
   for(const {key,data:d} of items){
     maqGasoil.push({...d,key,equipo:d.equipoId,monto:d.costo,descripcion:d.desc});
     if(d.origen==='estacion'&&!maqKeysExistentes.has(key)){
-      maqKeysExistentes.add(key); // evitar doble push en misma ejecución
+      maqKeysExistentes.add(key);
       await push(movRef,{
         tipo:'gasto',
         fecha:d.fecha||today(),
@@ -1456,6 +1461,7 @@ onValue(ref(dbMaq,'registros'),async snap=>{
   }
   document.getElementById('maq-status').className='alert alert-ok';
   document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
+  maqListenerActivo=false;
 });
 onValue(ref(dbMaq,'mantenimiento'),snap=>{ maqMant=[]; snap.forEach(c=>maqMant.push({...c.val(),key:c.key})); });
 
