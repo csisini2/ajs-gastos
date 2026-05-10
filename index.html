@@ -1425,8 +1425,18 @@ onValue(insRef,snap=>{ insumos=[]; snap.forEach(c=>insumos.push({...c.val(),key:
 onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>adelantos.push({...c.val(),key:c.key})); adelantos.sort((a,b)=>b.fecha.localeCompare(a.fecha)); });
 
 // MAQUINARIA LISTENERS
-onValue(ref(dbMaq,'cargas'),snap=>{ maqGasoil=[]; snap.forEach(c=>maqGasoil.push({...c.val(),key:c.key})); document.getElementById('maq-status').className='alert alert-ok'; document.getElementById('maq-status').textContent='✓ Conectado a base de datos de maquinaria Sisini'; });
-onValue(ref(dbMaq,'mantenimiento'),snap=>{ maqMant=[]; snap.forEach(c=>maqMant.push({...c.val(),key:c.key})); });
+onValue(ref(dbMaq,'registros'),snap=>{
+  maqGasoil=[];
+  snap.forEach(c=>{
+    const d=c.val();
+    maqGasoil.push({...d, key:c.key,
+      equipo:d.equipoId, monto:d.costo,
+      descripcion:d.desc
+    });
+  });
+  document.getElementById('maq-status').className='alert alert-ok';
+  document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
+});
 
 function updateBalance(){
   const ing=registros.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+r.monto,0);
