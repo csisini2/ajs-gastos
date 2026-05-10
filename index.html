@@ -1425,13 +1425,40 @@ onValue(insRef,snap=>{ insumos=[]; snap.forEach(c=>insumos.push({...c.val(),key:
 onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>adelantos.push({...c.val(),key:c.key})); adelantos.sort((a,b)=>b.fecha.localeCompare(a.fecha)); });
 
 // MAQUINARIA LISTENERS
+const maqProcesados=new Set();
 onValue(ref(dbMaq,'registros'),snap=>{
   maqGasoil=[];
   snap.forEach(c=>{
     const d=c.val();
-    maqGasoil.push({...d, key:c.key,
-      equipo:d.equipoId, monto:d.costo,
-      descripcion:d.desc
+    const item={...d,key:c.key,equipo:d.equipoId,monto:d.costo,descripcion:d.desc};
+    maqGasoil.push(item);
+    // Auto-registro como gasto si es compra en estación y no fue procesado antes
+    if(d.origen==='estacion'&&!maqProcesados.has(c.key)){
+      maqProcesados.add(c.key);
+      // Verificar si ya existe en movimientos para no duplicar
+      const yaExiste=registros.some(r=>r.maqKey===c.key);
+      if(!yaExiste){
+        push(movRef,{
+          tipo:'gasto',
+          fecha:d.fecha||today(),
+          detalle:`Gasoil ${d.equipoId||''} · ${d.litros||''} lts`,
+          resp:'CARLOS',
+          unidad:'U1',
+          cat:'Campo/combustible',
+          subdet:d.equipoId||'',
+          monto:parseInt(d.costo)||0,
+          metodo:'Efectivo',
+          estado:'Pagado',
+          obs:`Carga estación · ${d.litros||''} lts · importado de maquinaria`,
+          maqKey:c.key,
+          ts:serverTimestamp()
+        });
+      }
+    }
+  });
+  document.getElementById('maq-status').className='alert alert-ok';
+  document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
+});
     });
   });
   document.getElementById('maq-status').className='alert alert-ok';
