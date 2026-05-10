@@ -1462,6 +1462,7 @@ window.sincronizarMaquinaria = async () => {
       }
     }
     btn.textContent=nuevos>0?`✓ ${nuevos} gasto${nuevos>1?'s':''} importado${nuevos>1?'s':''}`:'✓ Todo al día';
+if(nuevos>0){ setTimeout(()=>{ renderDash(); renderHist(); },1500); }
     setTimeout(()=>{ btn.textContent='⟳ Sincronizar gastos de gasoil'; btn.disabled=false; },3000);
   }catch(e){
     btn.textContent='Error al sincronizar';
