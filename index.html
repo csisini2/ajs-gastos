@@ -641,7 +641,7 @@ tr:hover td{background:var(--bg3)}
       <button class="sec-tab active" onclick="showSec('maq-gasoil',this);renderMaqGasoil()">Cargas de gasoil</button>
       <button class="sec-tab" onclick="showSec('maq-mant',this);renderMaqMant()">Mantenimiento</button>
     </div>
-    <div id="maq-gasoil"><div style="margin-bottom:12px"><button id="btn-sync-maq" class="btn-blue btn-sm" onclick="sincronizarMaquinaria()">⟳ Sincronizar gastos de gasoil</button></div><div id="maq-gasoil-content"></div></div>
+    <div id="maq-gasoil"><div id="maq-gasoil-content"></div></div>
     <div id="maq-mant" style="display:none"><div id="maq-mant-content"><div class="loading"><div class="dot-pulse"><span></span><span></span><span></span></div></div></div></div>
   </div>
 </div>
@@ -720,7 +720,6 @@ const adelantosRef = ref(db,'adelantos');
 let registros=[], remitos=[], liquidaciones=[], empleados=[], caballos=[], insumos=[], adelantos=[];
 let maqGasoil=[], maqMant=[];
 let histFiltro='todos', tipoActual='gasto', editKey=null, kilosKey=null;
-let sincronizando=false;
 
 // HELPERS
 const fmt = n => '$'+Math.round(n).toLocaleString('es-AR');
@@ -729,6 +728,33 @@ const MESES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov
 const ULABELS={U1:'U1 · Caña',U4:'U4 · Caballos',U5:'U5 · Cochera',U6:'U6 · Prop.',Personal:'Personal',Lavanderia:'Lavandería'};
 const UBADGE={U1:'b-u1',U4:'b-u4',U5:'b-u5',U6:'b-u6',Personal:'b-per',Lavanderia:'b-lav'};
 const UCOLORS={U1:'#60a5fa',U4:'#a78bfa',U5:'#4ade80',U6:'#fbbf24',Personal:'#9a9690',Lavanderia:'#f472b6'};
+
+// fusiona registros manuales + gasoil de maquinaria en un solo array ordenado
+function getAllMovimientos(){
+  const gasoilMov=maqGasoil.map(r=>({
+    key:'maq_'+r.key,
+    tipo:'gasto',
+    fecha:r.fecha||today(),
+    detalle:`Gasoil ${r.equipoId||r.equipo||''} · ${r.litros||''} lts`,
+    resp:'CARLOS',
+    unidad:'U1',
+    cat:'Campo/combustible',
+    monto:Number(r.costo)||0,
+    metodo:'Efectivo',
+    estado:'Pagado',
+    obs:`Carga estación · importado de maquinaria`,
+    _esMaquinaria:true
+  }));
+  const todos=[...registros,...gasoilMov];
+  todos.sort((a,b)=>{
+    const df=(b.fecha||'').localeCompare(a.fecha||'');
+    if(df!==0) return df;
+    const ta=typeof b.ts==='number'?b.ts:0;
+    const tb=typeof a.ts==='number'?a.ts:0;
+    return ta-tb;
+  });
+  return todos;
+}
 
 // MODAL
 window.closeModal = id => document.getElementById(id).classList.remove('show');
@@ -1025,7 +1051,7 @@ function getFilteredHist(){
   const fMes=document.getElementById('filtro-mes').value;
   const fZafra=document.getElementById('filtro-zafra').value;
   const q=(document.getElementById('search-input').value||'').toLowerCase().trim();
-  let data=[...registros];
+  let data=getAllMovimientos();
   if(histFiltro==='gasto'||histFiltro==='ingreso') data=data.filter(r=>r.tipo===histFiltro);
   else if(['U1','U4','U5','U6','Personal','Lavanderia'].includes(histFiltro)) data=data.filter(r=>r.unidad===histFiltro);
   else if(histFiltro==='Pendiente') data=data.filter(r=>r.estado==='Pendiente');
@@ -1096,8 +1122,9 @@ window.importarIngenio = input => {
 
 // RENDERS
 function renderDash(){
-  const gastos=registros.filter(r=>r.tipo==='gasto');
-  const ingresos=registros.filter(r=>r.tipo==='ingreso');
+  const all=getAllMovimientos();
+  const gastos=all.filter(r=>r.tipo==='gasto');
+  const ingresos=all.filter(r=>r.tipo==='ingreso');
   const totalG=gastos.reduce((a,r)=>a+r.monto,0);
   const totalI=ingresos.reduce((a,r)=>a+r.monto,0);
   const pendG=gastos.filter(r=>r.estado==='Pendiente').reduce((a,r)=>a+r.monto,0);
@@ -1127,7 +1154,7 @@ function renderDash(){
   if(cheques.length){ banner.classList.add('show'); document.getElementById('cheque-list').innerHTML=cheques.map(r=>`<div class="alert-banner-item">${r.fecha} · ${r.detalle} · <strong>${fmt(r.monto)}</strong> · ${r.resp}</div>`).join(''); }
   else banner.classList.remove('show');
   // Últimos
-  const ultimos=registros.slice(0,8);
+  const ultimos=all.slice(0,8);
   if(!ultimos.length){ document.getElementById('ultimos-mov').innerHTML='<div class="empty"><div class="empty-icon">📋</div>Sin movimientos aún</div>'; return; }
   document.getElementById('ultimos-mov').innerHTML=`<div class="tbl-wrap"><table><tr><th>Fecha</th><th>Detalle</th><th>Unidad</th><th>Resp.</th><th style="text-align:right">Monto</th></tr>${ultimos.map(r=>`<tr><td class="mono" style="color:var(--text3)">${r.fecha}</td><td class="td-det">${r.detalle}</td><td><span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span></td><td style="color:var(--text3);font-size:11px">${r.resp}</td><td style="text-align:right" class="mono"><span style="color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">${r.tipo==='ingreso'?'+':'-'}${fmt(r.monto)}</span></td></tr>`).join('')}</table></div>`;
 }
@@ -1135,7 +1162,7 @@ function renderDash(){
 function renderHist(){
   const data=getFilteredHist();
   if(!data.length){ document.getElementById('tabla-hist').innerHTML='<div class="empty"><div class="empty-icon">🔍</div>Sin resultados para este filtro</div>'; return; }
-  document.getElementById('tabla-hist').innerHTML=`<table><tr><th>Fecha</th><th>Detalle</th><th>Unidad</th><th>Cat.</th><th>Zafra</th><th>Método</th><th>Resp.</th><th>Estado</th><th style="text-align:right">Monto</th><th></th></tr>${data.map(r=>`<tr><td class="mono" style="color:var(--text3);white-space:nowrap">${r.fecha}</td><td class="td-det">${r.detalle}</td><td><span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span></td><td style="color:var(--text3);font-size:11px" class="td-det">${r.cat||'—'}</td><td style="color:var(--text3);font-size:11px">${r.zafra||'—'}</td><td><span class="badge ${r.metodo==='cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.metodo||'—'}</span></td><td style="font-size:11px;white-space:nowrap">${r.resp}</td><td><span class="badge ${r.estado==='Pagado'||r.estado==='Cobrado'?'b-pag':'b-pend'}">${r.estado}</span></td><td style="text-align:right;white-space:nowrap" class="mono"><span style="color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">${r.tipo==='ingreso'?'+':'-'}${fmt(r.monto)}</span></td><td style="white-space:nowrap"><button class="btn-edit" onclick="editarMov('${r.key}')">✎</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button></td></tr>`).join('')}</table>`;
+  document.getElementById('tabla-hist').innerHTML=`<table><tr><th>Fecha</th><th>Detalle</th><th>Unidad</th><th>Cat.</th><th>Zafra</th><th>Método</th><th>Resp.</th><th>Estado</th><th style="text-align:right">Monto</th><th></th></tr>${data.map(r=>`<tr><td class="mono" style="color:var(--text3);white-space:nowrap">${r.fecha}</td><td class="td-det">${r.detalle}</td><td><span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span></td><td style="color:var(--text3);font-size:11px" class="td-det">${r.cat||'—'}</td><td style="color:var(--text3);font-size:11px">${r.zafra||'—'}</td><td><span class="badge ${r.metodo==='cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.metodo||'—'}</span></td><td style="font-size:11px;white-space:nowrap">${r.resp}</td><td><span class="badge ${r.estado==='Pagado'||r.estado==='Cobrado'?'b-pag':'b-pend'}">${r.estado}</span></td><td style="text-align:right;white-space:nowrap" class="mono"><span style="color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">${r.tipo==='ingreso'?'+':'-'}${fmt(r.monto)}</span></td><td style="white-space:nowrap">${r._esMaquinaria?'<span style="font-size:10px;color:var(--text3)">⚙ maq.</span>':`<button class="btn-edit" onclick="editarMov('${r.key}')">✎</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button>`}</td></tr>`).join('')}</table>`;
 }
 
 function renderRemitos(){
@@ -1321,8 +1348,8 @@ function renderReporte(){
   const fMes=document.getElementById('rep-mes').value||(new Date().toISOString().slice(5,7));
   const fAnio=document.getElementById('rep-anio').value||'2026';
   const prefix=`${fAnio}-${fMes}`;
-  const gastosMes=registros.filter(r=>r.tipo==='gasto'&&r.fecha&&r.fecha.startsWith(prefix));
-  const ingresosMes=registros.filter(r=>r.tipo==='ingreso'&&r.fecha&&r.fecha.startsWith(prefix));
+  const gastosMes=getAllMovimientos().filter(r=>r.tipo==='gasto'&&r.fecha&&r.fecha.startsWith(prefix));
+  const ingresosMes=getAllMovimientos().filter(r=>r.tipo==='ingreso'&&r.fecha&&r.fecha.startsWith(prefix));
   const totalG=gastosMes.reduce((a,r)=>a+r.monto,0);
   const totalI=ingresosMes.reduce((a,r)=>a+r.monto,0);
   const us=['U1','U4','U5','U6','Personal'];
@@ -1363,7 +1390,7 @@ function renderReporte(){
 function renderUnidades(){
   const fMes=document.getElementById('u-mes').value;
   const us=[{key:'U1',label:'U1 · Caña y Azúcar',color:'var(--blue)'},{key:'U4',label:'U4 · Caballos',color:'var(--purple)'},{key:'U5',label:'U5 · Cochera',color:'var(--green)'},{key:'U6',label:'U6 · Propiedades',color:'var(--amber)'},{key:'Personal',label:'Personal',color:'var(--text2)'}];
-  let regs=registros;
+  let regs=getAllMovimientos();
   if(fMes) regs=regs.filter(r=>r.fecha&&r.fecha.slice(5,7)===fMes);
   document.getElementById('unidades-content').innerHTML=us.map(u=>{
     const gas=regs.filter(r=>r.tipo==='gasto'&&r.unidad===u.key);
@@ -1408,7 +1435,6 @@ const syncDot=document.getElementById('sync-dot');
 const syncLbl=document.getElementById('sync-lbl');
 
 onValue(movRef,snap=>{
-  if(sincronizando) return; // ignorar disparos parciales durante sync de maquinaria
   registros=[];snap.forEach(c=>registros.push({...c.val(),key:c.key}));
   registros.sort((a,b)=>{
     const df=(b.fecha||'').localeCompare(a.fecha||'');
@@ -1432,9 +1458,8 @@ onValue(cabRef,snap=>{ caballos=[]; snap.forEach(c=>caballos.push({...c.val(),ke
 onValue(insRef,snap=>{ insumos=[]; snap.forEach(c=>insumos.push({...c.val(),key:c.key})); insumos.sort((a,b)=>a.fecha.localeCompare(b.fecha)); if(document.getElementById('panel-insumos').classList.contains('active')) renderInsumos(); });
 onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>adelantos.push({...c.val(),key:c.key})); adelantos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); });
 
-// MAQUINARIA LISTENERS
-// MAQUINARIA - lectura simple sin auto-sync
-get(ref(dbMaq,'registros')).then(snap=>{
+// MAQUINARIA LISTENERS — escucha en tiempo real, fusión en memoria al renderizar
+onValue(ref(dbMaq,'registros'),snap=>{
   maqGasoil=[];
   snap.forEach(c=>{
     const d=c.val();
@@ -1443,61 +1468,20 @@ get(ref(dbMaq,'registros')).then(snap=>{
   document.getElementById('maq-status').className='alert alert-ok';
   document.getElementById('maq-status').textContent='✓ Conectado a maquinaria Sisini · '+maqGasoil.length+' registros';
   if(document.getElementById('panel-maquinaria').classList.contains('active')) renderMaqGasoil();
+  // re-renderizar dashboard e historial para incluir gasoil fusionado
+  const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
+  if(id==='dashboard') renderDash();
+  if(id==='historial') renderHist();
+  updateBalance();
 });
 onValue(ref(dbMaq,'mantenimiento'),snap=>{ maqMant=[]; snap.forEach(c=>maqMant.push({...c.val(),key:c.key})); });
 
-// SINCRONIZAR MANUALMENTE
-window.sincronizarMaquinaria = async () => {
-  const btn=document.getElementById('btn-sync-maq');
-  btn.textContent='Sincronizando...'; btn.disabled=true;
-  sincronizando=true; // bloquear listener durante escrituras múltiples
-  try{
-    const movSnap=await get(movRef);
-    const keysExistentes=new Set();
-    movSnap.forEach(c=>{ if(c.val().maqKey) keysExistentes.add(c.val().maqKey); });
-    let nuevos=0;
-    for(const r of maqGasoil){
-      if(r.origen==='estacion'&&!keysExistentes.has(r.key)){
-        await push(movRef,{
-          tipo:'gasto',fecha:r.fecha||today(),
-          detalle:`Gasoil ${r.equipoId||''} · ${r.litros||''} lts`,
-          resp:'CARLOS',unidad:'U1',cat:'Campo/combustible',
-          subdet:r.equipoId||'',monto:Number(r.costo)||0,
-          metodo:'Efectivo',estado:'Pagado',
-          obs:`Carga estación · ${r.litros||''} lts · importado de maquinaria`,
-          maqKey:r.key,ts:serverTimestamp()
-        });
-        nuevos++;
-      }
-    }
-    // todos los push terminaron — ahora leemos el estado final completo
-    sincronizando=false;
-    const snapFinal=await get(movRef);
-    registros=[];
-    snapFinal.forEach(c=>registros.push({...c.val(),key:c.key}));
-    registros.sort((a,b)=>{
-      const df=(b.fecha||'').localeCompare(a.fecha||'');
-      if(df!==0) return df;
-      const ta=typeof b.ts==='number'?b.ts:0;
-      const tb=typeof a.ts==='number'?a.ts:0;
-      return ta-tb;
-    });
-    syncLbl.textContent=`en línea · ${registros.length} registros`;
-    updateBalance();
-    renderDash();
-    renderHist();
-    btn.textContent=nuevos>0?`✓ ${nuevos} gasto${nuevos>1?'s':''} importado${nuevos>1?'s':''}`:'✓ Todo al día';
-    setTimeout(()=>{ btn.textContent='⟳ Sincronizar gastos de gasoil'; btn.disabled=false; },3000);
-  }catch(e){
-    sincronizando=false;
-    btn.textContent='Error al sincronizar';
-    setTimeout(()=>{ btn.textContent='⟳ Sincronizar gastos de gasoil'; btn.disabled=false; },3000);
-  }
-};
+
 
 function updateBalance(){
-  const ing=registros.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+r.monto,0);
-  const gas=registros.filter(r=>r.tipo==='gasto').reduce((a,r)=>a+r.monto,0);
+  const all=getAllMovimientos();
+  const ing=all.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+r.monto,0);
+  const gas=all.filter(r=>r.tipo==='gasto').reduce((a,r)=>a+r.monto,0);
   const bal=ing-gas;
   const el=document.getElementById('balance-val');
   el.textContent=fmt(bal);
