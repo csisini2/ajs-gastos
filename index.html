@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0f0f0f">
 <title>AJS — Gestión de Empresa</title>
@@ -355,7 +356,7 @@ tr:hover td{background:var(--bg3)}
     <div class="fg">
       <div class="field"><label>Monto (ARS)</label><input type="number" id="n-monto" placeholder="0" min="0" inputmode="numeric"></div>
       <div class="field"><label>Método de pago</label>
-        <select id="n-metodo"><option value="">— —</option><option>Efectivo</option><option>Transferencia</option><option>Mercado Pago</option><option>Cuenta corriente</option><option>cheque</option><option>efectivo caballos</option><option>CC SAN VICENTE</option><option>CC MACRO</option><option>Otro</option></select>
+        <select id="n-metodo" onchange="document.getElementById('cheque-venc-field').style.display=this.value==='cheque'?'':'none'"><option value="">— —</option><option>Efectivo</option><option>Transferencia</option><option>Mercado Pago</option><option>Cuenta corriente</option><option>cheque</option><option>efectivo caballos</option><option>CC SAN VICENTE</option><option>CC MACRO</option><option>Otro</option></select>
       </div>
     </div>
     <div class="fg">
@@ -365,6 +366,7 @@ tr:hover td{background:var(--bg3)}
       <div class="field"><label>Proveedor (opcional)</label><input type="text" id="n-prov" placeholder="Ej: San Vicente, Gele..."></div>
     </div>
     <div class="field"><label>Observaciones (opcional)</label><input type="text" id="n-obs" placeholder="Notas adicionales"></div>
+    <div class="field" id="cheque-venc-field" style="display:none"><label>Fecha vencimiento cheque</label><input type="date" id="n-cheque-venc"></div>
     <div class="row-btns">
       <button class="btn btn-primary" onclick="guardar()" id="btn-guardar">▼ Guardar gasto</button>
       <button class="btn btn-ghost" onclick="limpiar()">Limpiar</button>
@@ -729,6 +731,8 @@ const ULABELS={U1:'U1 · Caña',U4:'U4 · Caballos',U5:'U5 · Cochera',U6:'U6 ·
 const UBADGE={U1:'b-u1',U4:'b-u4',U5:'b-u5',U6:'b-u6',Personal:'b-per',Lavanderia:'b-lav'};
 const UCOLORS={U1:'#60a5fa',U4:'#a78bfa',U5:'#4ade80',U6:'#fbbf24',Personal:'#9a9690',Lavanderia:'#f472b6'};
 
+const MAQ_URL='https://maquinaria-sisini.firebaseapp.com'; // URL app maquinaria
+
 // fusiona registros manuales + gasoil de maquinaria en un solo array ordenado
 function getAllMovimientos(){
   const gasoilMov=maqGasoil.map(r=>({
@@ -736,7 +740,7 @@ function getAllMovimientos(){
     tipo:'gasto',
     fecha:r.fecha||today(),
     detalle:`Gasoil ${r.equipoId||r.equipo||''} · ${r.litros||''} lts`,
-    resp:'CARLOS',
+    resp:r.resp||'CARLOS',
     unidad:'U1',
     cat:'Campo/combustible',
     monto:Number(r.costo)||0,
@@ -812,6 +816,8 @@ window.limpiar = () => {
   document.getElementById('n-estado').selectedIndex=0;
   document.getElementById('alert-nuevo').innerHTML='';
   document.getElementById('zafra-row').style.display='none';
+  document.getElementById('n-cheque-venc').value='';
+  document.getElementById('cheque-venc-field').style.display='none';
 };
 
 function showAlert(id,msg,type='ok'){
@@ -838,6 +844,7 @@ window.guardar = async () => {
     monto,metodo,estado:document.getElementById('n-estado').value,
     prov:document.getElementById('n-prov').value,
     obs:document.getElementById('n-obs').value,
+    chequeVenc:document.getElementById('n-metodo').value==='cheque'?document.getElementById('n-cheque-venc').value:'',
     ts:serverTimestamp()
   };
   const btn=document.getElementById('btn-guardar');
@@ -1056,7 +1063,7 @@ function getFilteredHist(){
   else if(['U1','U4','U5','U6','Personal','Lavanderia'].includes(histFiltro)) data=data.filter(r=>r.unidad===histFiltro);
   else if(histFiltro==='Pendiente') data=data.filter(r=>r.estado==='Pendiente');
   else if(histFiltro==='cheque') data=data.filter(r=>r.metodo==='cheque');
-  else if(histFiltro==='adelanto') data=data.filter(r=>(r.cat||'').toLowerCase().includes('adelanto'));
+  else if(histFiltro==='adelanto') data=data.filter(r=>!r._esMaquinaria&&(r.cat||'').toLowerCase().includes('adelanto'));
   if(fResp) data=data.filter(r=>r.resp===fResp);
   if(fMes) data=data.filter(r=>r.fecha&&r.fecha.slice(5,7)===fMes);
   if(fZafra) data=data.filter(r=>r.zafra===fZafra);
@@ -1148,11 +1155,24 @@ function renderDash(){
   gastos.forEach(r=>{ const m=r.fecha&&r.fecha.slice(5,7); if(m&&totMes[m]!==undefined) totMes[m]+=r.monto; });
   const maxM=Math.max(...Object.values(totMes),1);
   document.getElementById('chart-meses').innerHTML=`<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;height:80px">${Object.entries(totMes).map(([m,v])=>`<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><div style="width:100%;background:var(--blue);border-radius:2px 2px 0 0;height:${Math.round(v/maxM*60)+4}px;min-height:4px"></div><div style="font-size:9px;color:var(--text3)">${MESES[parseInt(m)]}</div></div>`).join('')}</div>`;
-  // Cheques pendientes
+  // Cheques pendientes — ordenados por fecha de vencimiento
+  const hoy=today();
   const cheques=registros.filter(r=>r.metodo==='cheque'&&r.estado==='Pendiente');
+  cheques.sort((a,b)=>(a.chequeVenc||a.fecha||'').localeCompare(b.chequeVenc||b.fecha||''));
   const banner=document.getElementById('cheque-banner');
-  if(cheques.length){ banner.classList.add('show'); document.getElementById('cheque-list').innerHTML=cheques.map(r=>`<div class="alert-banner-item">${r.fecha} · ${r.detalle} · <strong>${fmt(r.monto)}</strong> · ${r.resp}</div>`).join(''); }
-  else banner.classList.remove('show');
+  if(cheques.length){
+    banner.classList.add('show');
+    document.getElementById('cheque-banner').querySelector('.alert-banner-title').textContent=`⚠ ${cheques.length} cheque${cheques.length>1?'s':''} pendiente${cheques.length>1?'s':''}`;
+    document.getElementById('cheque-list').innerHTML=cheques.map(r=>{
+      const venc=r.chequeVenc||'';
+      const diasRestantes=venc?Math.ceil((new Date(venc)-new Date(hoy))/(1000*60*60*24)):null;
+      const urgente=diasRestantes!==null&&diasRestantes<=7;
+      const vencLabel=venc?(diasRestantes<0?`<span style="color:var(--red);font-weight:500">VENCIDO hace ${Math.abs(diasRestantes)}d</span>`:diasRestantes===0?`<span style="color:var(--red);font-weight:500">Vence HOY</span>`:`<span style="color:${urgente?'var(--amber)':'var(--text3)'}">Vence ${venc} (${diasRestantes}d)</span>`):'<span style="color:var(--text3);font-size:10px">sin fecha venc.</span>';
+      return`<div class="alert-banner-item" style="${urgente||diasRestantes<0?'border-left:2px solid var(--red);padding-left:8px':''}">
+        ${r.fecha} · ${r.detalle} · <strong>${fmt(r.monto)}</strong> · ${r.resp} · ${vencLabel}
+      </div>`;
+    }).join('');
+  } else banner.classList.remove('show');
   // Últimos
   const ultimos=all.slice(0,8);
   if(!ultimos.length){ document.getElementById('ultimos-mov').innerHTML='<div class="empty"><div class="empty-icon">📋</div>Sin movimientos aún</div>'; return; }
@@ -1162,7 +1182,7 @@ function renderDash(){
 function renderHist(){
   const data=getFilteredHist();
   if(!data.length){ document.getElementById('tabla-hist').innerHTML='<div class="empty"><div class="empty-icon">🔍</div>Sin resultados para este filtro</div>'; return; }
-  document.getElementById('tabla-hist').innerHTML=`<table><tr><th>Fecha</th><th>Detalle</th><th>Unidad</th><th>Cat.</th><th>Zafra</th><th>Método</th><th>Resp.</th><th>Estado</th><th style="text-align:right">Monto</th><th></th></tr>${data.map(r=>`<tr><td class="mono" style="color:var(--text3);white-space:nowrap">${r.fecha}</td><td class="td-det">${r.detalle}</td><td><span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span></td><td style="color:var(--text3);font-size:11px" class="td-det">${r.cat||'—'}</td><td style="color:var(--text3);font-size:11px">${r.zafra||'—'}</td><td><span class="badge ${r.metodo==='cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.metodo||'—'}</span></td><td style="font-size:11px;white-space:nowrap">${r.resp}</td><td><span class="badge ${r.estado==='Pagado'||r.estado==='Cobrado'?'b-pag':'b-pend'}">${r.estado}</span></td><td style="text-align:right;white-space:nowrap" class="mono"><span style="color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">${r.tipo==='ingreso'?'+':'-'}${fmt(r.monto)}</span></td><td style="white-space:nowrap">${r._esMaquinaria?'<span style="font-size:10px;color:var(--text3)">⚙ maq.</span>':`<button class="btn-edit" onclick="editarMov('${r.key}')">✎</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button>`}</td></tr>`).join('')}</table>`;
+  document.getElementById('tabla-hist').innerHTML=`<table><tr><th>Fecha</th><th>Detalle</th><th>Unidad</th><th>Cat.</th><th>Zafra</th><th>Método</th><th>Resp.</th><th>Estado</th><th style="text-align:right">Monto</th><th></th></tr>${data.map(r=>`<tr><td class="mono" style="color:var(--text3);white-space:nowrap">${r.fecha}</td><td class="td-det">${r.detalle}</td><td><span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span></td><td style="color:var(--text3);font-size:11px" class="td-det">${r.cat||'—'}</td><td style="color:var(--text3);font-size:11px">${r.zafra||'—'}</td><td><span class="badge ${r.metodo==='cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.metodo||'—'}</span></td><td style="font-size:11px;white-space:nowrap">${r.resp}</td><td><span class="badge ${r.estado==='Pagado'||r.estado==='Cobrado'?'b-pag':'b-pend'}">${r.estado}</span></td><td style="text-align:right;white-space:nowrap" class="mono"><span style="color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">${r.tipo==='ingreso'?'+':'-'}${fmt(r.monto)}</span></td><td style="white-space:nowrap">${r._esMaquinaria?`<a href="${MAQ_URL}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;border:1px solid var(--teal-bg);padding:3px 7px;border-radius:var(--radius-xs)">⚙ maq.</a>`:`<button class="btn-edit" onclick="editarMov('${r.key}')">✎</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button>`}</td></tr>`).join('')}</table>`;
 }
 
 function renderRemitos(){
