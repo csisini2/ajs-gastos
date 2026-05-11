@@ -740,7 +740,7 @@ function getAllMovimientos(){
     unidad:'U1',
     cat:'Campo/combustible',
     monto:Number(r.costo)||0,
-    metodo:'Efectivo',
+    metodo:r.metodo||'Efectivo',
     estado:'Pagado',
     obs:`Carga estación · importado de maquinaria`,
     _esMaquinaria:true
