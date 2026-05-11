@@ -376,9 +376,15 @@ tr:hover td{background:var(--bg3)}
 
 <!-- HISTORIAL -->
 <div id="panel-historial" class="panel">
-  <div class="export-row">
-    <button class="btn-green btn-sm" onclick="exportExcel()">⬇ Excel</button>
-    <button class="btn-amber btn-sm" onclick="exportPDF()">⬇ PDF</button>
+  <div class="export-row" style="justify-content:space-between;align-items:center">
+    <div style="display:flex;gap:8px">
+      <button class="btn-green btn-sm" onclick="exportExcel()">⬇ Excel</button>
+      <button class="btn-amber btn-sm" onclick="exportPDF()">⬇ PDF</button>
+    </div>
+    <div style="display:flex;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px">
+      <button id="vista-cards-btn" class="btn" style="padding:5px 12px;font-size:12px;background:var(--bg3);color:var(--text)" onclick="setVistaHist('cards')">▦ Cards</button>
+      <button id="vista-tabla-btn" class="btn" style="padding:5px 12px;font-size:12px;background:transparent;color:var(--text3)" onclick="setVistaHist('tabla')">☰ Tabla</button>
+    </div>
   </div>
   <div class="search-wrap">
     <span class="search-icon">🔍</span>
@@ -721,7 +727,7 @@ const adelantosRef = ref(db,'adelantos');
 // STATE
 let registros=[], remitos=[], liquidaciones=[], empleados=[], caballos=[], insumos=[], adelantos=[];
 let maqGasoil=[], maqMant=[];
-let histFiltro='todos', tipoActual='gasto', editKey=null, kilosKey=null;
+let histFiltro='todos', tipoActual='gasto', editKey=null, kilosKey=null, vistaHist='cards';
 
 // HELPERS
 const fmt = n => '$'+Math.round(n).toLocaleString('es-AR');
@@ -848,11 +854,18 @@ window.guardar = async () => {
     ts:serverTimestamp()
   };
   const btn=document.getElementById('btn-guardar');
+  if(btn.disabled) return; // evitar doble tap
   btn.textContent='Guardando...'; btn.disabled=true;
-  try{ await push(movRef,rec); showAlert('alert-nuevo','✓ Guardado correctamente','ok'); limpiar(); }
-  catch(e){ showAlert('alert-nuevo','Error al guardar. Revisá la conexión.','err'); }
-  btn.textContent=tipoActual==='gasto'?'▼ Guardar gasto':'▲ Guardar ingreso';
-  btn.disabled=false;
+  try{
+    await push(movRef,rec);
+    showAlert('alert-nuevo','✓ Guardado correctamente','ok');
+    limpiar();
+  }catch(e){
+    showAlert('alert-nuevo','Error al guardar. Revisá la conexión.','err');
+  }finally{
+    btn.textContent=tipoActual==='gasto'?'▼ Guardar gasto':'▲ Guardar ingreso';
+    btn.disabled=false;
+  }
 };
 
 // EDITAR MOVIMIENTO
@@ -925,7 +938,7 @@ window.guardarRemito = async () => {
     fotoUrl,kilos:'',ts:serverTimestamp()
   };
   try{ await push(remitosRef,rec); showAlert('alert-cosecha','✓ Remito guardado','ok'); limpiarRemito(); }
-  catch(e){ showAlert('alert-cosecha','Error al guardar.','err'); }
+  catch(e){ showAlert('alert-cosecha','Error al guardar.','err'); } finally{ document.querySelector('#cos-nuevo .btn-primary').disabled=false; document.querySelector('#cos-nuevo .btn-primary').textContent='Guardar remito'; }
 };
 
 window.limpiarRemito = () => {
@@ -1179,10 +1192,60 @@ function renderDash(){
   document.getElementById('ultimos-mov').innerHTML=`<div class="tbl-wrap"><table><tr><th>Fecha</th><th>Detalle</th><th>Unidad</th><th>Resp.</th><th style="text-align:right">Monto</th></tr>${ultimos.map(r=>`<tr><td class="mono" style="color:var(--text3)">${r.fecha}</td><td class="td-det">${r.detalle}</td><td><span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span></td><td style="color:var(--text3);font-size:11px">${r.resp}</td><td style="text-align:right" class="mono"><span style="color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">${r.tipo==='ingreso'?'+':'-'}${fmt(r.monto)}</span></td></tr>`).join('')}</table></div>`;
 }
 
+window.setVistaHist = v => {
+  vistaHist=v;
+  document.getElementById('vista-cards-btn').style.cssText=v==='cards'?'padding:5px 12px;font-size:12px;background:var(--bg3);color:var(--text)':'padding:5px 12px;font-size:12px;background:transparent;color:var(--text3)';
+  document.getElementById('vista-tabla-btn').style.cssText=v==='tabla'?'padding:5px 12px;font-size:12px;background:var(--bg3);color:var(--text)':'padding:5px 12px;font-size:12px;background:transparent;color:var(--text3)';
+  renderHist();
+};
+
 function renderHist(){
   const data=getFilteredHist();
-  if(!data.length){ document.getElementById('tabla-hist').innerHTML='<div class="empty"><div class="empty-icon">🔍</div>Sin resultados para este filtro</div>'; return; }
-  document.getElementById('tabla-hist').innerHTML=`<table><tr><th>Fecha</th><th>Detalle</th><th>Unidad</th><th>Cat.</th><th>Zafra</th><th>Método</th><th>Resp.</th><th>Estado</th><th style="text-align:right">Monto</th><th></th></tr>${data.map(r=>`<tr><td class="mono" style="color:var(--text3);white-space:nowrap">${r.fecha}</td><td class="td-det">${r.detalle}</td><td><span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span></td><td style="color:var(--text3);font-size:11px" class="td-det">${r.cat||'—'}</td><td style="color:var(--text3);font-size:11px">${r.zafra||'—'}</td><td><span class="badge ${r.metodo==='cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.metodo||'—'}</span></td><td style="font-size:11px;white-space:nowrap">${r.resp}</td><td><span class="badge ${r.estado==='Pagado'||r.estado==='Cobrado'?'b-pag':'b-pend'}">${r.estado}</span></td><td style="text-align:right;white-space:nowrap" class="mono"><span style="color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">${r.tipo==='ingreso'?'+':'-'}${fmt(r.monto)}</span></td><td style="white-space:nowrap">${r._esMaquinaria?`<a href="${MAQ_URL}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;border:1px solid var(--teal-bg);padding:3px 7px;border-radius:var(--radius-xs)">⚙ maq.</a>`:`<button class="btn-edit" onclick="editarMov('${r.key}')">✎</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button>`}</td></tr>`).join('')}</table>`;
+  const el=document.getElementById('tabla-hist');
+  if(!data.length){ el.innerHTML='<div class="empty"><div class="empty-icon">🔍</div>Sin resultados para este filtro</div>'; return; }
+
+  if(vistaHist==='cards'){
+    // totales del filtro actual
+    const totalG=data.filter(r=>r.tipo==='gasto').reduce((a,r)=>a+r.monto,0);
+    const totalI=data.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+r.monto,0);
+    el.innerHTML=
+      `<div style="display:flex;gap:8px;padding:12px 0 4px;font-size:12px">
+        <span style="color:var(--text3)">${data.length} registros</span>
+        <span style="margin-left:auto;color:var(--red)">−${fmt(totalG)}</span>
+        <span style="color:var(--green)">+${fmt(totalI)}</span>
+      </div>`+
+      data.map(r=>{
+        const isIng=r.tipo==='ingreso';
+        const acciones=r._esMaquinaria
+          ?`<a href="${MAQ_URL}" target="_blank" style="font-size:11px;color:var(--teal);text-decoration:none;border:1px solid var(--teal-bg);padding:4px 10px;border-radius:var(--radius-xs)">⚙ maquinaria</a>`
+          :`<button class="btn-edit" onclick="editarMov('${r.key}')">✎ Editar</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button>`;
+        return`<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${isIng?'var(--green)':'var(--red)'};border-radius:var(--radius);padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.detalle}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:3px">${r.fecha} · ${r.resp}</div>
+            </div>
+            <div style="text-align:right;margin-left:12px;flex-shrink:0">
+              <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:${isIng?'var(--green)':'var(--red)'}">
+                ${isIng?'+':'−'}${fmt(r.monto)}
+              </div>
+              <span class="badge ${r.estado==='Pagado'||r.estado==='Cobrado'?'b-pag':'b-pend'}" style="margin-top:4px">${r.estado}</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+            <span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span>
+            ${r.cat?`<span style="font-size:11px;color:var(--text3)">${r.cat}</span>`:''}
+            ${r.zafra?`<span class="badge b-teal">Zafra ${r.zafra}</span>`:''}
+            <span class="badge ${r.metodo==='cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.metodo||'—'}</span>
+            ${r.chequeVenc?`<span style="font-size:10px;color:var(--amber)">Vence ${r.chequeVenc}</span>`:''}
+            <div style="margin-left:auto;display:flex;gap:6px">${acciones}</div>
+          </div>
+          ${r.obs?`<div style="font-size:11px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">${r.obs}</div>`:''}
+        </div>`;
+      }).join('');
+  } else {
+    el.innerHTML=`<div class="tbl-wrap"><table><tr><th>Fecha</th><th>Detalle</th><th>Unidad</th><th>Cat.</th><th>Zafra</th><th>Método</th><th>Resp.</th><th>Estado</th><th style="text-align:right">Monto</th><th></th></tr>${data.map(r=>`<tr><td class="mono" style="color:var(--text3);white-space:nowrap">${r.fecha}</td><td class="td-det">${r.detalle}</td><td><span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span></td><td style="color:var(--text3);font-size:11px" class="td-det">${r.cat||'—'}</td><td style="color:var(--text3);font-size:11px">${r.zafra||'—'}</td><td><span class="badge ${r.metodo==='cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.metodo||'—'}</span></td><td style="font-size:11px;white-space:nowrap">${r.resp}</td><td><span class="badge ${r.estado==='Pagado'||r.estado==='Cobrado'?'b-pag':'b-pend'}">${r.estado}</span></td><td style="text-align:right;white-space:nowrap" class="mono"><span style="color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">${r.tipo==='ingreso'?'+':'-'}${fmt(r.monto)}</span></td><td style="white-space:nowrap">${r._esMaquinaria?`<a href="${MAQ_URL}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;border:1px solid var(--teal-bg);padding:3px 7px;border-radius:var(--radius-xs)">⚙ maq.</a>`:`<button class="btn-edit" onclick="editarMov('${r.key}')">✎</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button>`}</td></tr>`).join('')}</table></div>`;
+  }
 }
 
 function renderRemitos(){
@@ -1469,6 +1532,7 @@ onValue(movRef,snap=>{
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
   const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte};
   if(fn[id]) fn[id]();
+  hacerBackupSiCorresponde(); // backup diario automático
 },()=>{ syncDot.style.background='var(--red)'; syncLbl.textContent='sin conexión'; });
 
 onValue(remitosRef,snap=>{ remitos=[]; snap.forEach(c=>remitos.push({...c.val(),key:c.key})); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); if(document.getElementById('panel-cosecha').classList.contains('active')) renderRemitos(); });
@@ -1506,6 +1570,38 @@ function updateBalance(){
   const el=document.getElementById('balance-val');
   el.textContent=fmt(bal);
   el.style.color=bal>=0?'var(--green)':'var(--red)';
+}
+
+// BACKUP AUTOMÁTICO DIARIO
+async function hacerBackupSiCorresponde(){
+  const hoy=today();
+  const backupKey='ajs_backup_'+hoy;
+  if(localStorage.getItem(backupKey)) return; // ya se hizo hoy
+  try{
+    // guardar backup de hoy
+    const snap=await get(movRef);
+    const datos={};
+    snap.forEach(c=>{ datos[c.key]=c.val(); });
+    await set(ref(db,'backups/'+hoy),{fecha:hoy,ts:Date.now(),movimientos:datos});
+    localStorage.setItem(backupKey,'1');
+    console.log('✓ Backup guardado:',hoy);
+
+    // limpiar backups con más de 30 días — solo borra copias, nunca los datos reales
+    const snapBackups=await get(ref(db,'backups'));
+    if(snapBackups.exists()){
+      const limite=new Date();
+      limite.setDate(limite.getDate()-30);
+      const limiteStr=limite.toISOString().slice(0,10);
+      const borrar=[];
+      snapBackups.forEach(c=>{ if(c.key<limiteStr) borrar.push(c.key); });
+      for(const fecha of borrar){
+        await remove(ref(db,'backups/'+fecha));
+        console.log('🗑 Backup viejo eliminado:',fecha);
+      }
+    }
+  }catch(e){
+    console.warn('Backup automático falló:',e);
+  }
 }
 
 // INIT
