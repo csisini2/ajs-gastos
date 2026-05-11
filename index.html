@@ -823,8 +823,11 @@ document.getElementById('n-cat').addEventListener('change', function(){
   const sel=document.getElementById('n-subdet');
   const libre=document.getElementById('n-subdet-libre');
   if(esSueldoAdelanto){
-    // generar lista de empleados activos
-    const opts=empleados.filter(e=>e.activo!==false).map(e=>`<option>${e.nombre}</option>`).join('');
+    // empleados base + los cargados en el panel Empleados (sin duplicados)
+    const base=['Carlos','Fernando','Lucas','Tiago','Loco','Balaza','Sebastian','Gaby'];
+    const delPanel=empleados.filter(e=>e.activo!==false).map(e=>e.nombre);
+    const todos=[...new Set([...base,...delPanel])];
+    const opts=todos.map(n=>`<option>${n}</option>`).join('');
     sel.innerHTML=`<option value="">— elegí empleado —</option>${opts}<option value="__otro__">Otro (escribir nombre)...</option>`;
   } else {
     // restaurar el select original con los grupos
