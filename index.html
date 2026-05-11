@@ -835,13 +835,19 @@ function showAlert(id,msg,type='ok'){
 
 // GUARDAR MOVIMIENTO
 window.guardar = async () => {
+  console.log('[guardar] inicio');
   const fecha=document.getElementById('n-fecha').value||today();
   const detalle=document.getElementById('n-detalle').value.trim();
   const resp=document.getElementById('n-resp').value;
   const unidad=document.getElementById('n-unidad').value;
   const monto=parseFloat(document.getElementById('n-monto').value)||0;
   const metodo=document.getElementById('n-metodo').value;
-  if(!detalle||!resp||!unidad||!monto||!metodo){ showAlert('alert-nuevo','Completá los campos obligatorios: detalle, responsable, unidad, monto y método.','err'); return; }
+  console.log('[guardar] valores:',{fecha,detalle,resp,unidad,monto,metodo,tipoActual});
+  if(!detalle||!resp||!unidad||!monto||!metodo){
+    console.warn('[guardar] validación falló');
+    showAlert('alert-nuevo','Completá los campos obligatorios: detalle, responsable, unidad, monto y método.','err');
+    return;
+  }
   const rec={
     tipo:tipoActual,fecha,detalle,resp,unidad,
     cat:tipoActual==='gasto'?document.getElementById('n-cat').value:document.getElementById('n-icat').value,
@@ -853,18 +859,23 @@ window.guardar = async () => {
     chequeVenc:document.getElementById('n-metodo').value==='cheque'?document.getElementById('n-cheque-venc').value:'',
     ts:serverTimestamp()
   };
+  console.log('[guardar] rec armado:',rec);
   const btn=document.getElementById('btn-guardar');
-  if(btn.disabled) return; // evitar doble tap
+  if(btn.disabled){ console.warn('[guardar] btn deshabilitado, salgo'); return; }
   btn.textContent='Guardando...'; btn.disabled=true;
   try{
-    await push(movRef,rec);
+    console.log('[guardar] llamando push...');
+    const result=await push(movRef,rec);
+    console.log('[guardar] push OK, key:',result.key);
     showAlert('alert-nuevo','✓ Guardado correctamente','ok');
     limpiar();
   }catch(e){
-    showAlert('alert-nuevo','Error al guardar. Revisá la conexión.','err');
+    console.error('[guardar] ERROR en push:',e);
+    showAlert('alert-nuevo','Error al guardar: '+e.message,'err');
   }finally{
     btn.textContent=tipoActual==='gasto'?'▼ Guardar gasto':'▲ Guardar ingreso';
     btn.disabled=false;
+    console.log('[guardar] fin');
   }
 };
 
