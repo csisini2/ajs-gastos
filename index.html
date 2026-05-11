@@ -51,7 +51,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .card-title{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:14px}
 .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-@media(min-width:600px){.metrics{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:600px){.metrics{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:900px){.metrics{grid-template-columns:repeat(4,1fr)}}
 .metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 12px}
 .m-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px}
 .m-val{font-family:'DM Mono',monospace;font-size:18px;font-weight:500}
@@ -325,7 +326,7 @@ tr:hover td{background:var(--bg3)}
     <div class="fg">
       <div class="field" id="cat-field">
         <label>Categoría</label>
-        <select id="n-cat">
+        <select id="n-cat" onchange="document.getElementById('n-cat-libre').style.display=this.value==='__otro__'?'':'none'">
           <option value="">— opcional —</option>
           <optgroup label="Campo">
             <option>Campo/combustible</option><option>Campo/menus</option><option>Campo/bar</option><option>Campo/Viaticos</option><option>Campo/des.mer</option><option>Campo/repuestos</option><option>Campo/cosecha</option><option>Campo/arreglos herramientas</option><option>Campo/Plantada</option>
@@ -345,7 +346,9 @@ tr:hover td{background:var(--bg3)}
           <optgroup label="Otros">
             <option>Casa</option><option>Lavanderia</option><option>Herramientas</option><option>Insumos</option><option>Flete</option><option>Alberdi</option><option>mantenimiento</option><option>Otros</option>
           </optgroup>
+          <option value="__otro__">✎ Otro (escribir)...</option>
         </select>
+        <input type="text" id="n-cat-libre" placeholder="Escribí la categoría" style="display:none;margin-top:6px">
       </div>
       <div class="field" id="icat-field" style="display:none">
         <label>Categoría ingreso</label>
@@ -420,6 +423,14 @@ tr:hover td{background:var(--bg3)}
       <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option><option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option><option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
     </select>
     <select class="fselect" id="filtro-zafra" onchange="renderHist()"><option value="">Todas las zafras</option><option>2024</option><option>2025</option><option>2026</option></select>
+    <select class="fselect" id="filtro-orden" onchange="renderHist()">
+      <option value="fecha-desc">▼ Fecha (nuevo→viejo)</option>
+      <option value="fecha-asc">▲ Fecha (viejo→nuevo)</option>
+      <option value="monto-desc">▼ Monto (mayor→menor)</option>
+      <option value="monto-asc">▲ Monto (menor→mayor)</option>
+      <option value="cat-asc">⇅ Categoría A-Z</option>
+      <option value="resp-asc">⇅ Responsable A-Z</option>
+    </select>
   </div>
   <div class="card" style="padding:0;overflow:hidden">
     <div class="tbl-wrap" id="tabla-hist"><div class="loading"><div class="dot-pulse"><span></span><span></span><span></span></div></div></div>
@@ -761,12 +772,14 @@ tr:hover td{background:var(--bg3)}
         </select>
       </div>
       <div class="field"><label>Asociar a (opcional)</label>
-        <select id="nota-asociado">
+        <select id="nota-asociado" onchange="document.getElementById('nota-asociado-libre').style.display=this.value==='__otro__'?'':'none'">
           <option value="">— ninguno —</option>
           <optgroup label="Empleados" id="nota-asoc-emp"></optgroup>
           <optgroup label="Caballos" id="nota-asoc-cab"></optgroup>
           <optgroup label="Otros"><option value="cat:Tarjetas">Tarjetas</option><option value="cat:Caña">Caña</option><option value="cat:Cochera">Cochera</option></optgroup>
+          <option value="__otro__">Otro (escribir nombre)...</option>
         </select>
+        <input type="text" id="nota-asociado-libre" placeholder="Nombre, lugar, proveedor..." style="display:none;margin-top:6px">
       </div>
       <div class="field f-wide"><label>Contenido</label><textarea id="nota-contenido" rows="3" placeholder="Detalles, contexto, fechas..."></textarea></div>
     </div>
@@ -952,6 +965,8 @@ window.limpiar = () => {
   document.getElementById('n-estado').selectedIndex=0;
   document.getElementById('n-subdet-libre').value='';
   document.getElementById('n-subdet-libre').style.display='none';
+  document.getElementById('n-cat-libre').value='';
+  document.getElementById('n-cat-libre').style.display='none';
   document.getElementById('alert-nuevo').innerHTML='';
   document.getElementById('zafra-row').style.display='none';
   document.getElementById('n-cheque-venc').value='';
@@ -979,7 +994,7 @@ window.guardar = async () => {
   }
   const rec={
     tipo:tipoActual,fecha,detalle,resp,unidad,
-    cat:tipoActual==='gasto'?document.getElementById('n-cat').value:document.getElementById('n-icat').value,
+    cat:tipoActual==='gasto'?(document.getElementById('n-cat').value==='__otro__'?document.getElementById('n-cat-libre').value:document.getElementById('n-cat').value):document.getElementById('n-icat').value,
     subdet:tipoActual==='gasto'?(document.getElementById('n-subdet').value==='__otro__'?document.getElementById('n-subdet-libre').value:document.getElementById('n-subdet').value):'',
     zafra:document.getElementById('n-zafra')?document.getElementById('n-zafra').value:'',
     monto,metodo,estado:document.getElementById('n-estado').value,
@@ -1231,6 +1246,14 @@ function getFilteredHist(){
   if(fMes) data=data.filter(r=>r.fecha&&r.fecha.slice(5,7)===fMes);
   if(fZafra) data=data.filter(r=>r.zafra===fZafra);
   if(q) data=data.filter(r=>[r.detalle,r.cat,r.prov,r.obs,r.subdet].join(' ').toLowerCase().includes(q));
+  // ordenamiento
+  const orden=document.getElementById('filtro-orden')?.value||'fecha-desc';
+  if(orden==='fecha-desc') data.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  else if(orden==='fecha-asc') data.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  else if(orden==='monto-desc') data.sort((a,b)=>b.monto-a.monto);
+  else if(orden==='monto-asc') data.sort((a,b)=>a.monto-b.monto);
+  else if(orden==='cat-asc') data.sort((a,b)=>(a.cat||'').localeCompare(b.cat||''));
+  else if(orden==='resp-asc') data.sort((a,b)=>(a.resp||'').localeCompare(b.resp||''));
   return data;
 }
 
@@ -1299,7 +1322,28 @@ function renderDash(){
   const totalI=ingresos.reduce((a,r)=>a+r.monto,0);
   const pendG=gastos.filter(r=>r.estado==='Pendiente').reduce((a,r)=>a+r.monto,0);
   const pendI=ingresos.filter(r=>r.estado==='Pendiente').reduce((a,r)=>a+r.monto,0);
-  document.getElementById('metrics-row').innerHTML=`
+  // Tarjetas por método de pago: cada bolsillo muestra ingresos/gastos/saldo separados
+  const todosMetodos=[...METODOS_CUENTA,...METODOS_TARJETA];
+  const cardsHTML=todosMetodos.map(m=>{
+    const movs=all.filter(r=>r.metodo===m);
+    if(!movs.length) return '';
+    const ing=movs.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+r.monto,0);
+    const gas=movs.filter(r=>r.tipo==='gasto').reduce((a,r)=>a+r.monto,0);
+    const esTC=METODOS_TARJETA.includes(m);
+    const saldo=ing-gas;
+    const colorSaldo=esTC?'var(--red)':(saldo>=0?'var(--green)':'var(--red)');
+    const lblSaldo=esTC?'Debe':'Saldo';
+    const valSaldo=esTC?fmt(gas-ing):fmt(saldo);
+    return`<div class="metric" style="border-left:3px solid ${esTC?'var(--red)':(saldo>=0?'var(--green)':'var(--amber)')}">
+      <div class="m-lbl" style="font-size:9px">${m}</div>
+      <div style="display:flex;flex-direction:column;gap:2px;margin-top:6px">
+        ${ing?`<div style="font-size:11px;color:var(--green);font-family:'DM Mono',monospace">+${fmt(ing)}</div>`:''}
+        ${gas?`<div style="font-size:11px;color:var(--red);font-family:'DM Mono',monospace">−${fmt(gas)}</div>`:''}
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:${colorSaldo};margin-top:3px;border-top:1px solid var(--border);padding-top:3px">${lblSaldo}: ${valSaldo}</div>
+      </div>
+    </div>`;
+  }).filter(x=>x).join('');
+  document.getElementById('metrics-row').innerHTML=cardsHTML||`
     <div class="metric"><div class="m-lbl">Total gastos</div><div class="m-val" style="color:var(--red)">${fmt(totalG)}</div><div class="m-sub">${gastos.length} mov.</div></div>
     <div class="metric"><div class="m-lbl">Total ingresos</div><div class="m-val" style="color:var(--green)">${fmt(totalI)}</div><div class="m-sub">${ingresos.length} mov.</div></div>
     <div class="metric"><div class="m-lbl">Balance</div><div class="m-val" style="color:${totalI-totalG>=0?'var(--green)':'var(--red)'}">${fmt(totalI-totalG)}</div><div class="m-sub">&nbsp;</div></div>
@@ -1965,7 +2009,11 @@ window.guardarNota=async()=>{
   const titulo=document.getElementById('nota-titulo').value.trim();
   const contenido=document.getElementById('nota-contenido').value.trim();
   const tipo=document.getElementById('nota-tipo').value;
-  const asociado=document.getElementById('nota-asociado').value;
+  let asociado=document.getElementById('nota-asociado').value;
+  if(asociado==='__otro__'){
+    const libre=document.getElementById('nota-asociado-libre').value.trim();
+    asociado=libre?'libre:'+libre:'';
+  }
   if(!titulo){ showAlert('alert-nota','El título es obligatorio','err'); return; }
   try{
     await push(notasRef,{titulo,contenido,tipo,asociado,fecha:today(),estado:'activa',ts:serverTimestamp()});
@@ -1981,6 +2029,8 @@ window.limpiarNota=()=>{
   document.getElementById('nota-contenido').value='';
   document.getElementById('nota-tipo').selectedIndex=0;
   document.getElementById('nota-asociado').selectedIndex=0;
+  document.getElementById('nota-asociado-libre').value='';
+  document.getElementById('nota-asociado-libre').style.display='none';
 };
 
 window.filtrarNotas=(f,btn)=>{
@@ -2004,10 +2054,15 @@ window.marcarImportante=async(key,tipo)=>{
 };
 
 function renderNotas(){
-  // poblar selects de asociado con empleados y caballos actuales
+  // poblar selects de asociado con empleados base + los cargados en el panel
   const selEmp=document.getElementById('nota-asoc-emp');
   const selCab=document.getElementById('nota-asoc-cab');
-  if(selEmp) selEmp.innerHTML=empleados.map(e=>`<option value="emp:${e.nombre}">${e.nombre}</option>`).join('');
+  if(selEmp){
+    const base=['Carlos','Fernando','Lucas','Tiago','Loco','Balaza','Sebastian','Gaby'];
+    const delPanel=empleados.map(e=>e.nombre);
+    const todos=[...new Set([...base,...delPanel])];
+    selEmp.innerHTML=todos.map(n=>`<option value="emp:${n}">${n}</option>`).join('');
+  }
   if(selCab) selCab.innerHTML=caballos.map(c=>`<option value="cab:${c.nombre}">${c.nombre}</option>`).join('');
 
   let data=notas.slice();
