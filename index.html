@@ -1532,7 +1532,6 @@ onValue(movRef,snap=>{
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
   const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte};
   if(fn[id]) fn[id]();
-  hacerBackupSiCorresponde(); // backup diario automático
 },()=>{ syncDot.style.background='var(--red)'; syncLbl.textContent='sin conexión'; });
 
 onValue(remitosRef,snap=>{ remitos=[]; snap.forEach(c=>remitos.push({...c.val(),key:c.key})); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); if(document.getElementById('panel-cosecha').classList.contains('active')) renderRemitos(); });
@@ -1610,7 +1609,14 @@ document.getElementById('r-fecha').value=today();
 document.getElementById('l-fecha').value=today();
 document.getElementById('ins-fecha').value=today();
 document.getElementById('ad-fecha').value=today();
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+
+// backup automático: una sola vez, 10 segundos después de cargar la app
+setTimeout(()=>hacerBackupSiCorresponde(),10000);
+
+// desregistrar service worker viejo si existe (estaba dando error de MIME)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(regs=>regs.forEach(r=>r.unregister()));
+}
 </script>
 </body>
 </html>
