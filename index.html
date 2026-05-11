@@ -703,7 +703,7 @@ const cfgMaq = {
   appId:"1:159286017945:web:c0d3807cd44764a5a55d08"
 };
 
-const appGastos = initializeApp(cfgGastos,'gastos');
+const appGastos = initializeApp(cfgGastos);
 const appMaq = initializeApp(cfgMaq,'maquinaria');
 const db = getDatabase(appGastos);
 const dbMaq = getDatabase(appMaq);
@@ -1453,7 +1453,7 @@ window.sincronizarMaquinaria = async () => {
           tipo:'gasto',fecha:r.fecha||today(),
           detalle:`Gasoil ${r.equipoId||''} · ${r.litros||''} lts`,
           resp:'CARLOS',unidad:'U1',cat:'Campo/combustible',
-          subdet:r.equipoId||'',monto:parseInt(r.costo)||0,
+          subdet:r.equipoId||'',monto:Number(r.costo)||0,
           metodo:'Efectivo',estado:'Pagado',
           obs:`Carga estación · ${r.litros||''} lts · importado de maquinaria`,
           maqKey:r.key,ts:serverTimestamp()
