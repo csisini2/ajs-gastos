@@ -1529,7 +1529,9 @@ const syncDot=document.getElementById('sync-dot');
 const syncLbl=document.getElementById('sync-lbl');
 
 onValue(movRef,snap=>{
+  console.log('[listener movRef] disparado, size:',snap.size);
   registros=[];snap.forEach(c=>registros.push({...c.val(),key:c.key}));
+  console.log('[listener movRef] registros.length:',registros.length);
   registros.sort((a,b)=>{
     const df=(b.fecha||'').localeCompare(a.fecha||'');
     if(df!==0) return df;
@@ -1541,9 +1543,15 @@ onValue(movRef,snap=>{
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
+  console.log('[listener movRef] panel activo:',id);
   const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte};
-  if(fn[id]) fn[id]();
-},()=>{ syncDot.style.background='var(--red)'; syncLbl.textContent='sin conexión'; });
+  if(fn[id]){ console.log('[listener movRef] llamando render:',id); fn[id](); }
+  else console.warn('[listener movRef] no hay render para panel:',id);
+},(err)=>{
+  console.error('[listener movRef] ERROR:',err);
+  syncDot.style.background='var(--red)';
+  syncLbl.textContent='sin conexión';
+});
 
 onValue(remitosRef,snap=>{ remitos=[]; snap.forEach(c=>remitos.push({...c.val(),key:c.key})); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); if(document.getElementById('panel-cosecha').classList.contains('active')) renderRemitos(); });
 onValue(liqRef,snap=>{ liquidaciones=[]; snap.forEach(c=>liquidaciones.push({...c.val(),key:c.key})); liquidaciones.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); if(document.getElementById('panel-liquidaciones').classList.contains('active')) renderLiquidaciones(); });
