@@ -867,6 +867,22 @@ window.guardar = async () => {
     console.log('[guardar] llamando push...');
     const result=await push(movRef,rec);
     console.log('[guardar] push OK, key:',result.key);
+    // recarga manual por si el listener onValue no se dispara
+    const snap=await get(movRef);
+    registros=[];
+    snap.forEach(c=>registros.push({...c.val(),key:c.key}));
+    registros.sort((a,b)=>{
+      const df=(b.fecha||'').localeCompare(a.fecha||'');
+      if(df!==0) return df;
+      const ta=typeof b.ts==='number'?b.ts:0;
+      const tb=typeof a.ts==='number'?a.ts:0;
+      return ta-tb;
+    });
+    syncLbl.textContent=`en línea · ${registros.length} registros`;
+    updateBalance();
+    const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
+    const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte};
+    if(fn[id]) fn[id]();
     showAlert('alert-nuevo','✓ Guardado correctamente','ok');
     limpiar();
   }catch(e){
@@ -1527,6 +1543,26 @@ window.renderMaqMant = () => {
 // FIREBASE LISTENERS
 const syncDot=document.getElementById('sync-dot');
 const syncLbl=document.getElementById('sync-lbl');
+
+// Carga inicial inmediata con get (más confiable que onValue solo)
+get(movRef).then(snap=>{
+  console.log('[init] get inicial, size:',snap.size);
+  registros=[];
+  snap.forEach(c=>registros.push({...c.val(),key:c.key}));
+  registros.sort((a,b)=>{
+    const df=(b.fecha||'').localeCompare(a.fecha||'');
+    if(df!==0) return df;
+    const ta=typeof b.ts==='number'?b.ts:0;
+    const tb=typeof a.ts==='number'?a.ts:0;
+    return ta-tb;
+  });
+  syncDot.classList.add('online');
+  syncLbl.textContent=`en línea · ${registros.length} registros`;
+  updateBalance();
+  const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte};
+  if(fn[id]) fn[id]();
+}).catch(e=>console.error('[init] error get inicial:',e));
 
 onValue(movRef,snap=>{
   console.log('[listener movRef] disparado, size:',snap.size);
