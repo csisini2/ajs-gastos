@@ -720,6 +720,7 @@ const adelantosRef = ref(db,'adelantos');
 let registros=[], remitos=[], liquidaciones=[], empleados=[], caballos=[], insumos=[], adelantos=[];
 let maqGasoil=[], maqMant=[];
 let histFiltro='todos', tipoActual='gasto', editKey=null, kilosKey=null;
+let sincronizando=false;
 
 // HELPERS
 const fmt = n => '$'+Math.round(n).toLocaleString('es-AR');
@@ -1407,6 +1408,7 @@ const syncDot=document.getElementById('sync-dot');
 const syncLbl=document.getElementById('sync-lbl');
 
 onValue(movRef,snap=>{
+  if(sincronizando) return; // ignorar disparos parciales durante sync de maquinaria
   registros=[];snap.forEach(c=>registros.push({...c.val(),key:c.key}));
   registros.sort((a,b)=>{
     const df=(b.fecha||'').localeCompare(a.fecha||'');
@@ -1448,6 +1450,7 @@ onValue(ref(dbMaq,'mantenimiento'),snap=>{ maqMant=[]; snap.forEach(c=>maqMant.p
 window.sincronizarMaquinaria = async () => {
   const btn=document.getElementById('btn-sync-maq');
   btn.textContent='Sincronizando...'; btn.disabled=true;
+  sincronizando=true; // bloquear listener durante escrituras múltiples
   try{
     const movSnap=await get(movRef);
     const keysExistentes=new Set();
@@ -1467,10 +1470,26 @@ window.sincronizarMaquinaria = async () => {
         nuevos++;
       }
     }
-    // el onValue de movRef se dispara solo al escribir — no hace falta recargar manualmente
+    // todos los push terminaron — ahora leemos el estado final completo
+    sincronizando=false;
+    const snapFinal=await get(movRef);
+    registros=[];
+    snapFinal.forEach(c=>registros.push({...c.val(),key:c.key}));
+    registros.sort((a,b)=>{
+      const df=(b.fecha||'').localeCompare(a.fecha||'');
+      if(df!==0) return df;
+      const ta=typeof b.ts==='number'?b.ts:0;
+      const tb=typeof a.ts==='number'?a.ts:0;
+      return ta-tb;
+    });
+    syncLbl.textContent=`en línea · ${registros.length} registros`;
+    updateBalance();
+    renderDash();
+    renderHist();
     btn.textContent=nuevos>0?`✓ ${nuevos} gasto${nuevos>1?'s':''} importado${nuevos>1?'s':''}`:'✓ Todo al día';
     setTimeout(()=>{ btn.textContent='⟳ Sincronizar gastos de gasoil'; btn.disabled=false; },3000);
   }catch(e){
+    sincronizando=false;
     btn.textContent='Error al sincronizar';
     setTimeout(()=>{ btn.textContent='⟳ Sincronizar gastos de gasoil'; btn.disabled=false; },3000);
   }
