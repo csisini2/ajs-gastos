@@ -321,10 +321,10 @@ tr:hover td{background:var(--bg3)}
             <option>Campo/combustible</option><option>Campo/menus</option><option>Campo/bar</option><option>Campo/Viaticos</option><option>Campo/des.mer</option><option>Campo/repuestos</option><option>Campo/cosecha</option><option>Campo/arreglos herramientas</option><option>Campo/Plantada</option>
           </optgroup>
           <optgroup label="Sueldos">
-            <option>Sueldo/Carlos</option><option>Sueldo/Fernando</option><option>Sueldo/Lucas</option><option>Sueldo/Tiago</option><option>Sueldo/Loco</option><option>Sueldo/Balaza</option><option>Sueldo/Sebastian</option><option>Sueldo/Gaby</option><option>AJS SUELDOS</option>
+            <option>Campo/Sueldo</option><option>AJS/Sueldo</option>
           </optgroup>
           <optgroup label="Adelantos">
-            <option>Adelanto/Carlos</option><option>Adelanto/Fernando</option><option>Adelanto/Lucas</option><option>Adelanto/Tiago</option><option>Adelanto/Loco</option><option>Adelanto/Balaza</option><option>Adelanto/Sebastian</option><option>Adelanto/Gaby</option>
+            <option>Campo/Adelanto</option><option>AJS/Adelanto</option>
           </optgroup>
           <optgroup label="AJS / Caballos">
             <option>AJS</option><option>AJS ALIMENTO</option><option>AJS ALFA</option><option>AJS SAN VICENTE</option>
@@ -343,7 +343,8 @@ tr:hover td{background:var(--bg3)}
       </div>
       <div class="field" id="subdet-field">
         <label>Subcategoría</label>
-        <select id="n-subdet">
+        <input type="text" id="n-subdet-libre" placeholder="Nombre empleado eventual" style="display:none;margin-bottom:6px">
+        <select id="n-subdet" onchange="document.getElementById('n-subdet-libre').style.display=this.value==='__otro__'?'':'none'">
           <option value="">— opcional —</option>
           <optgroup label="Servicios"><option>Servicios - Luz</option><option>Servicios - Agua</option><option>Servicios - Internet</option><option>Servicios - Teléfono</option><option>Servicios - Gas</option></optgroup>
           <optgroup label="Propiedades"><option>Mant. Prop. - Plomería</option><option>Mant. Prop. - Electricidad</option><option>Mant. Prop. - Pintura</option><option>Mant. Prop. - Jardinería</option><option>Mant. Prop. - Reparaciones</option><option>Cortada de pasto SJ</option><option>Cortada de pasto LP</option><option>Cortada de pasto Alberdi</option><option>Impuestos - Inmobiliario</option><option>Impuestos - Vehículos</option><option>Seguros - Propiedades/Vehículos</option><option>Expensas / Administración</option></optgroup>
@@ -816,10 +817,34 @@ document.getElementById('n-unidad').addEventListener('change', function(){
   document.getElementById('zafra-row').style.display=this.value==='U1'?'':'none';
 });
 
+// Cuando categoría es Sueldo o Adelanto, poblar subcategoría con empleados
+document.getElementById('n-cat').addEventListener('change', function(){
+  const esSueldoAdelanto=/sueldo|adelanto/i.test(this.value);
+  const sel=document.getElementById('n-subdet');
+  const libre=document.getElementById('n-subdet-libre');
+  if(esSueldoAdelanto){
+    // generar lista de empleados activos
+    const opts=empleados.filter(e=>e.activo!==false).map(e=>`<option>${e.nombre}</option>`).join('');
+    sel.innerHTML=`<option value="">— elegí empleado —</option>${opts}<option value="__otro__">Otro (escribir nombre)...</option>`;
+  } else {
+    // restaurar el select original con los grupos
+    sel.innerHTML=`<option value="">— opcional —</option>
+      <optgroup label="Servicios"><option>Servicios - Luz</option><option>Servicios - Agua</option><option>Servicios - Internet</option><option>Servicios - Teléfono</option><option>Servicios - Gas</option></optgroup>
+      <optgroup label="Propiedades"><option>Mant. Prop. - Plomería</option><option>Mant. Prop. - Electricidad</option><option>Mant. Prop. - Pintura</option><option>Mant. Prop. - Jardinería</option><option>Mant. Prop. - Reparaciones</option><option>Cortada de pasto SJ</option><option>Cortada de pasto LP</option><option>Cortada de pasto Alberdi</option><option>Impuestos - Inmobiliario</option><option>Impuestos - Vehículos</option><option>Seguros - Propiedades/Vehículos</option><option>Expensas / Administración</option></optgroup>
+      <optgroup label="Caballos"><option>Herraduras/Herrada</option><option>Medicamentos caballos</option></optgroup>
+      <optgroup label="Seguros"><option>Seguro GR</option><option>Seguro CS</option><option>Seguro Li</option><option>Seguro SW4</option><option>Seguro Ram</option><option>Seguro trailers</option><option>Seguro auto li</option></optgroup>
+      <optgroup label="Otros"><option>CC MACRO</option><option>man cc macro</option><option>recargas claro</option></optgroup>`;
+    libre.style.display='none';
+    libre.value='';
+  }
+});
+
 window.limpiar = () => {
   ['n-fecha','n-detalle','n-prov','n-obs','n-monto'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
   ['n-resp','n-unidad','n-cat','n-subdet','n-metodo','n-icat','n-zafra'].forEach(id=>{ const e=document.getElementById(id); if(e) e.selectedIndex=0; });
   document.getElementById('n-estado').selectedIndex=0;
+  document.getElementById('n-subdet-libre').value='';
+  document.getElementById('n-subdet-libre').style.display='none';
   document.getElementById('alert-nuevo').innerHTML='';
   document.getElementById('zafra-row').style.display='none';
   document.getElementById('n-cheque-venc').value='';
@@ -848,7 +873,7 @@ window.guardar = async () => {
   const rec={
     tipo:tipoActual,fecha,detalle,resp,unidad,
     cat:tipoActual==='gasto'?document.getElementById('n-cat').value:document.getElementById('n-icat').value,
-    subdet:tipoActual==='gasto'?document.getElementById('n-subdet').value:'',
+    subdet:tipoActual==='gasto'?(document.getElementById('n-subdet').value==='__otro__'?document.getElementById('n-subdet-libre').value:document.getElementById('n-subdet').value):'',
     zafra:document.getElementById('n-zafra')?document.getElementById('n-zafra').value:'',
     monto,metodo,estado:document.getElementById('n-estado').value,
     prov:document.getElementById('n-prov').value,
@@ -1392,8 +1417,8 @@ function renderSueldosMes(){
   const totalA=adelantosMes.reduce((a,r)=>a+r.monto,0);
   document.getElementById('sueldos-mes').innerHTML=`
     <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Sueldos y adelantos en ${mes}</div>
-    ${sueldosMes.map(r=>`<div class="inf-row"><span>${r.detalle} <span style="color:var(--text3);font-size:11px">· ${r.cat}</span></span><span class="mono">${fmt(r.monto)}</span></div>`).join('')}
-    ${adelantosMes.map(r=>`<div class="inf-row"><span style="color:var(--amber)">${r.detalle}</span><span class="mono" style="color:var(--amber)">${fmt(r.monto)}</span></div>`).join('')}
+    ${sueldosMes.map(r=>`<div class="inf-row"><span><strong>${r.subdet||'Sin nombre'}</strong> <span style="color:var(--text3);font-size:11px">· ${r.cat} · ${r.fecha}</span></span><span class="mono">${fmt(r.monto)}</span></div>`).join('')}
+    ${adelantosMes.map(r=>`<div class="inf-row"><span style="color:var(--amber)"><strong>${r.subdet||'Sin nombre'}</strong> <span style="color:var(--text3);font-size:11px">· ${r.cat} · ${r.fecha}</span></span><span class="mono" style="color:var(--amber)">${fmt(r.monto)}</span></div>`).join('')}
     ${sueldosMes.length||adelantosMes.length?`
       <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:13px"><span>Total sueldos</span><span class="mono" style="color:var(--red)">${fmt(totalS)}</span></div>
       <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px"><span>Total adelantos</span><span class="mono" style="color:var(--amber)">${fmt(totalA)}</span></div>
