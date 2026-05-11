@@ -835,16 +835,13 @@ function showAlert(id,msg,type='ok'){
 
 // GUARDAR MOVIMIENTO
 window.guardar = async () => {
-  console.log('[guardar] inicio');
   const fecha=document.getElementById('n-fecha').value||today();
   const detalle=document.getElementById('n-detalle').value.trim();
   const resp=document.getElementById('n-resp').value;
   const unidad=document.getElementById('n-unidad').value;
   const monto=parseFloat(document.getElementById('n-monto').value)||0;
   const metodo=document.getElementById('n-metodo').value;
-  console.log('[guardar] valores:',{fecha,detalle,resp,unidad,monto,metodo,tipoActual});
   if(!detalle||!resp||!unidad||!monto||!metodo){
-    console.warn('[guardar] validación falló');
     showAlert('alert-nuevo','Completá los campos obligatorios: detalle, responsable, unidad, monto y método.','err');
     return;
   }
@@ -859,14 +856,10 @@ window.guardar = async () => {
     chequeVenc:document.getElementById('n-metodo').value==='cheque'?document.getElementById('n-cheque-venc').value:'',
     ts:serverTimestamp()
   };
-  console.log('[guardar] rec armado:',rec);
   const btn=document.getElementById('btn-guardar');
-  if(btn.disabled){ console.warn('[guardar] btn deshabilitado, salgo'); return; }
   btn.textContent='Guardando...'; btn.disabled=true;
   try{
-    console.log('[guardar] llamando push...');
     const result=await push(movRef,rec);
-    console.log('[guardar] push OK, key:',result.key);
     // recarga manual por si el listener onValue no se dispara
     const snap=await get(movRef);
     registros=[];
@@ -886,12 +879,10 @@ window.guardar = async () => {
     showAlert('alert-nuevo','✓ Guardado correctamente','ok');
     limpiar();
   }catch(e){
-    console.error('[guardar] ERROR en push:',e);
-    showAlert('alert-nuevo','Error al guardar: '+e.message,'err');
+    showAlert('alert-nuevo','Error al guardar. Revisá la conexión.','err');
   }finally{
     btn.textContent=tipoActual==='gasto'?'▼ Guardar gasto':'▲ Guardar ingreso';
     btn.disabled=false;
-    console.log('[guardar] fin');
   }
 };
 
@@ -1546,7 +1537,6 @@ const syncLbl=document.getElementById('sync-lbl');
 
 // Carga inicial inmediata con get (más confiable que onValue solo)
 get(movRef).then(snap=>{
-  console.log('[init] get inicial, size:',snap.size);
   registros=[];
   snap.forEach(c=>{ registros.push({...c.val(),key:c.key}); });
   registros.sort((a,b)=>{
@@ -1562,12 +1552,10 @@ get(movRef).then(snap=>{
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
   const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte};
   if(fn[id]) fn[id]();
-}).catch(e=>console.error('[init] error get inicial:',e));
+}).catch(()=>{});
 
 onValue(movRef,snap=>{
-  console.log('[listener movRef] disparado, size:',snap.size);
   registros=[];snap.forEach(c=>{ registros.push({...c.val(),key:c.key}); });
-  console.log('[listener movRef] registros.length:',registros.length);
   registros.sort((a,b)=>{
     const df=(b.fecha||'').localeCompare(a.fecha||'');
     if(df!==0) return df;
@@ -1579,12 +1567,9 @@ onValue(movRef,snap=>{
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-  console.log('[listener movRef] panel activo:',id);
   const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte};
-  if(fn[id]){ console.log('[listener movRef] llamando render:',id); fn[id](); }
-  else console.warn('[listener movRef] no hay render para panel:',id);
+  if(fn[id]) fn[id]();
 },(err)=>{
-  console.error('[listener movRef] ERROR:',err);
   syncDot.style.background='var(--red)';
   syncLbl.textContent='sin conexión';
 });
