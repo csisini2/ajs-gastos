@@ -356,7 +356,7 @@ tr:hover td{background:var(--bg3)}
       </div>
       <div class="field" id="subdet-field">
         <label>Subcategoría</label>
-        <input type="text" id="n-subdet-libre" placeholder="Nombre empleado eventual" style="display:none;margin-bottom:6px">
+        <input type="text" id="n-subdet-libre" placeholder="Escribí la subcategoría" style="display:none;margin-bottom:6px">
         <select id="n-subdet" onchange="document.getElementById('n-subdet-libre').style.display=this.value==='__otro__'?'':'none'">
           <option value="">— opcional —</option>
           <optgroup label="Servicios"><option>Servicios - Luz</option><option>Servicios - Agua</option><option>Servicios - Internet</option><option>Servicios - Teléfono</option><option>Servicios - Gas</option></optgroup>
@@ -364,6 +364,7 @@ tr:hover td{background:var(--bg3)}
           <optgroup label="Caballos"><option>Herraduras/Herrada</option><option>Medicamentos caballos</option></optgroup>
           <optgroup label="Seguros"><option>Seguro GR</option><option>Seguro CS</option><option>Seguro Li</option><option>Seguro SW4</option><option>Seguro Ram</option><option>Seguro trailers</option><option>Seguro auto li</option></optgroup>
           <optgroup label="Otros"><option>CC MACRO</option><option>man cc macro</option><option>recargas claro</option></optgroup>
+          <option value="__otro__">✎ Otro (escribir)...</option>
         </select>
       </div>
     </div>
@@ -725,9 +726,13 @@ tr:hover td{background:var(--bg3)}
   <div class="modal">
     <div class="modal-title">Configurar tarjeta</div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:10px" id="modal-tarjeta-nombre"></div>
-    <div class="field"><label>Día de cierre del resumen (1-31)</label><input type="number" id="tc-cierre" min="1" max="31" placeholder="ej: 25"></div>
-    <div class="field"><label>Día de vencimiento del pago (1-31)</label><input type="number" id="tc-venc" min="1" max="31" placeholder="ej: 10"></div>
-    <div style="font-size:11px;color:var(--text3);margin-top:8px">El día de cierre es cuando se "corta" el resumen del mes. Los gastos posteriores van al próximo resumen.</div>
+    <div style="font-size:11px;color:var(--amber);margin-bottom:10px;padding:8px;background:var(--amber-bg);border-radius:var(--radius-xs)">📅 Resumen del ciclo actual (el que está por vencer)</div>
+    <div class="field"><label>Fecha de cierre del resumen actual</label><input type="date" id="tc-cierre-act"></div>
+    <div class="field"><label>Fecha de vencimiento del pago actual</label><input type="date" id="tc-venc-act"></div>
+    <div style="font-size:11px;color:var(--teal);margin:14px 0 10px;padding:8px;background:var(--teal-bg);border-radius:var(--radius-xs)">📅 Próximo ciclo (los gastos nuevos van acá)</div>
+    <div class="field"><label>Fecha de próximo cierre</label><input type="date" id="tc-cierre-prox"></div>
+    <div class="field"><label>Fecha de próximo vencimiento</label><input type="date" id="tc-venc-prox"></div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">Cuando pagás el resumen actual, el próximo ciclo pasa a ser el actual y vos cargás el siguiente.</div>
     <div class="modal-btns">
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-tarjeta')">Cancelar</button>
       <button class="btn btn-sm btn-primary" id="modal-tarjeta-btn">Guardar</button>
@@ -953,7 +958,8 @@ document.getElementById('n-cat').addEventListener('change', function(){
       <optgroup label="Propiedades"><option>Mant. Prop. - Plomería</option><option>Mant. Prop. - Electricidad</option><option>Mant. Prop. - Pintura</option><option>Mant. Prop. - Jardinería</option><option>Mant. Prop. - Reparaciones</option><option>Cortada de pasto SJ</option><option>Cortada de pasto LP</option><option>Cortada de pasto Alberdi</option><option>Impuestos - Inmobiliario</option><option>Impuestos - Vehículos</option><option>Seguros - Propiedades/Vehículos</option><option>Expensas / Administración</option></optgroup>
       <optgroup label="Caballos"><option>Herraduras/Herrada</option><option>Medicamentos caballos</option></optgroup>
       <optgroup label="Seguros"><option>Seguro GR</option><option>Seguro CS</option><option>Seguro Li</option><option>Seguro SW4</option><option>Seguro Ram</option><option>Seguro trailers</option><option>Seguro auto li</option></optgroup>
-      <optgroup label="Otros"><option>CC MACRO</option><option>man cc macro</option><option>recargas claro</option></optgroup>`;
+      <optgroup label="Otros"><option>CC MACRO</option><option>man cc macro</option><option>recargas claro</option></optgroup>
+      <option value="__otro__">✎ Otro (escribir)...</option>`;
     libre.style.display='none';
     libre.value='';
   }
@@ -1895,72 +1901,78 @@ function renderBolsillos(){
 
 // ── TARJETAS ────────────────────────────────────────────────────
 
-// Devuelve {actual, proximo, ventana} para una tarjeta dada
+// Devuelve estado de una tarjeta basado en las fechas reales configuradas
 function calcularCicloTarjeta(nombreTC){
-  const config=tarjetas[nombreTC]||{cierre:25,venc:10};
-  const hoy=new Date();
+  const config=tarjetas[nombreTC]||{};
+  const hoy=today();
+  // movimientos: gastos hechos con esta tarjeta
   const movs=getAllMovimientos().filter(r=>r.metodo===nombreTC&&r.tipo==='gasto');
-  const pagos=getAllMovimientos().filter(r=>r.tipo==='gasto'&&r.cat==='Pago tarjeta'&&r.subdet===nombreTC).map(p=>p.monto).reduce((a,b)=>a+b,0);
+  // pagos: registros tipo "Pago tarjeta" que apunten a esta TC
+  const pagos=getAllMovimientos().filter(r=>r.tipo==='gasto'&&r.cat==='Pago tarjeta'&&r.subdet===nombreTC).reduce((a,r)=>a+r.monto,0);
 
-  // Fecha del último cierre y próximo cierre
-  const diaHoy=hoy.getDate();
-  let cierreAnterior, cierreActual, vencActual, vencProximo;
-  if(diaHoy>config.cierre){
-    // ya pasó el cierre de este mes; el resumen actual venció (o vence pronto)
-    cierreAnterior=new Date(hoy.getFullYear(),hoy.getMonth(),config.cierre);
-    cierreActual=new Date(hoy.getFullYear(),hoy.getMonth()+1,config.cierre);
-    vencActual=new Date(hoy.getFullYear(),hoy.getMonth()+1,config.venc);
-    vencProximo=new Date(hoy.getFullYear(),hoy.getMonth()+2,config.venc);
+  const cierreAct=config.cierreAct||'';   // fecha real de cierre del resumen actual
+  const vencAct=config.vencAct||'';        // fecha real de vencimiento del pago actual
+  const cierreProx=config.cierreProx||'';  // fecha del próximo cierre
+  const vencProx=config.vencProx||'';      // fecha del próximo vencimiento
+
+  // Resumen actual = todos los gastos con fecha <= cierreAct
+  // Si no hay cierre configurado, considerar todos como deuda activa
+  let resumenActual=0, proximoResumen=0;
+  if(cierreAct){
+    movs.forEach(r=>{
+      if((r.fecha||'')<=cierreAct) resumenActual+=r.monto;
+      else proximoResumen+=r.monto;
+    });
   } else {
-    // todavía no llegó al cierre de este mes
-    cierreAnterior=new Date(hoy.getFullYear(),hoy.getMonth()-1,config.cierre);
-    cierreActual=new Date(hoy.getFullYear(),hoy.getMonth(),config.cierre);
-    vencActual=new Date(hoy.getFullYear(),hoy.getMonth(),config.venc);
-    vencProximo=new Date(hoy.getFullYear(),hoy.getMonth()+1,config.venc);
+    // sin config: todo es deuda total
+    resumenActual=movs.reduce((a,r)=>a+r.monto,0);
   }
-  const cierreAntS=cierreAnterior.toISOString().slice(0,10);
-  const cierreActS=cierreActual.toISOString().slice(0,10);
 
-  // resumen actual = gastos entre cierreAnterior y cierreActual
-  const resumenActual=movs.filter(r=>r.fecha>cierreAntS&&r.fecha<=cierreActS).reduce((a,r)=>a+r.monto,0);
-  // próximo resumen = gastos después de cierreActual
-  const proximoResumen=movs.filter(r=>r.fecha>cierreActS).reduce((a,r)=>a+r.monto,0);
-
-  // restar pagos al resumen actual
+  // descontar pagos del resumen actual
   const aPagar=Math.max(0,resumenActual-pagos);
-  const diasParaVenc=Math.ceil((vencActual-hoy)/(1000*60*60*24));
+  // total adeudado (incluye proximo resumen)
+  const deudaTotal=resumenActual+proximoResumen-pagos;
+  // días hasta vencimiento
+  let diasParaVenc=null;
+  if(vencAct){
+    diasParaVenc=Math.ceil((new Date(vencAct)-new Date(hoy))/(1000*60*60*24));
+  }
 
-  return{config,resumenActual,proximoResumen,aPagar,vencActual:vencActual.toISOString().slice(0,10),vencProximo:vencProximo.toISOString().slice(0,10),diasParaVenc,cierreActual:cierreActS,pagos};
+  return{config,resumenActual,proximoResumen,aPagar,deudaTotal,vencActual:vencAct,vencProximo:vencProx,cierreActual:cierreAct,cierreProximo:cierreProx,diasParaVenc,pagos};
 }
 
 function renderTarjetas(){
   const cont=document.getElementById('tarjetas-list');
   cont.innerHTML=METODOS_TARJETA.map(tc=>{
-    const{config,resumenActual,proximoResumen,aPagar,vencActual,vencProximo,diasParaVenc}=calcularCicloTarjeta(tc);
-    const urgente=diasParaVenc<=5&&aPagar>0;
-    const vencido=diasParaVenc<0&&aPagar>0;
+    const{config,resumenActual,proximoResumen,aPagar,deudaTotal,vencActual,vencProximo,cierreActual,cierreProximo,diasParaVenc}=calcularCicloTarjeta(tc);
+    const noConfig=!config.cierreAct;
+    const urgente=diasParaVenc!==null&&diasParaVenc<=5&&aPagar>0;
+    const vencido=diasParaVenc!==null&&diasParaVenc<0&&aPagar>0;
     const color=vencido?'var(--red)':urgente?'var(--amber)':'var(--text2)';
     return`<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${color};border-radius:var(--radius);padding:12px 14px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
         <div>
           <div style="font-size:14px;font-weight:500">${tc}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">Cierre día ${config.cierre} · Vence día ${config.venc}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">
+            ${noConfig?'<span style="color:var(--amber)">⚠ Sin fechas configuradas — tocá ⚙</span>':`Cierre ${cierreActual} · Vence ${vencActual}`}
+          </div>
         </div>
         <div style="display:flex;gap:4px">
           <button class="btn-edit btn-sm" onclick="abrirConfigTarjeta('${tc}')">⚙</button>
           ${aPagar>0?`<button class="btn-sm btn-primary" onclick="abrirPagarTarjeta('${tc}')">💳 Pagar</button>`:''}
         </div>
       </div>
+      ${deudaTotal>0?`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Deuda total: <strong style="color:var(--red)">${fmt(deudaTotal)}</strong></div>`:''}
       <div style="display:flex;gap:12px;margin-bottom:8px">
         <div style="flex:1;background:var(--bg);padding:8px 10px;border-radius:var(--radius-xs)">
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase">A pagar (vence ${vencActual})</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase">A pagar ahora${vencActual?' (vence '+vencActual+')':''}</div>
           <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:${color}">${fmt(aPagar)}</div>
-          ${vencido?`<div style="font-size:10px;color:var(--red)">VENCIDO hace ${Math.abs(diasParaVenc)} días</div>`:urgente?`<div style="font-size:10px;color:var(--amber)">Vence en ${diasParaVenc} días</div>`:`<div style="font-size:10px;color:var(--text3)">Faltan ${diasParaVenc} días</div>`}
+          ${diasParaVenc===null?'<div style="font-size:10px;color:var(--text3)">Sin fecha de vencimiento</div>':vencido?`<div style="font-size:10px;color:var(--red)">VENCIDO hace ${Math.abs(diasParaVenc)} días</div>`:urgente?`<div style="font-size:10px;color:var(--amber)">Vence en ${diasParaVenc} días</div>`:diasParaVenc===0?`<div style="font-size:10px;color:var(--red)">Vence HOY</div>`:`<div style="font-size:10px;color:var(--text3)">Faltan ${diasParaVenc} días</div>`}
         </div>
         <div style="flex:1;background:var(--bg);padding:8px 10px;border-radius:var(--radius-xs)">
           <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Próximo resumen</div>
           <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--text2)">${fmt(proximoResumen)}</div>
-          <div style="font-size:10px;color:var(--text3)">Vencerá ${vencProximo}</div>
+          <div style="font-size:10px;color:var(--text3)">${cierreProximo?'Cierra '+cierreProximo:'sin fecha'}${vencProximo?' · Vence '+vencProximo:''}</div>
         </div>
       </div>
     </div>`;
@@ -1969,14 +1981,18 @@ function renderTarjetas(){
 
 // Modal configurar tarjeta
 window.abrirConfigTarjeta=tc=>{
-  const config=tarjetas[tc]||{cierre:25,venc:10};
+  const config=tarjetas[tc]||{};
   document.getElementById('modal-tarjeta-nombre').textContent=tc;
-  document.getElementById('tc-cierre').value=config.cierre;
-  document.getElementById('tc-venc').value=config.venc;
+  document.getElementById('tc-cierre-act').value=config.cierreAct||'';
+  document.getElementById('tc-venc-act').value=config.vencAct||'';
+  document.getElementById('tc-cierre-prox').value=config.cierreProx||'';
+  document.getElementById('tc-venc-prox').value=config.vencProx||'';
   document.getElementById('modal-tarjeta-btn').onclick=async()=>{
-    const cierre=parseInt(document.getElementById('tc-cierre').value)||25;
-    const venc=parseInt(document.getElementById('tc-venc').value)||10;
-    await set(ref(db,'tarjetas/'+tc.replace(/ /g,'_')),{nombre:tc,cierre,venc});
+    const cierreAct=document.getElementById('tc-cierre-act').value;
+    const vencAct=document.getElementById('tc-venc-act').value;
+    const cierreProx=document.getElementById('tc-cierre-prox').value;
+    const vencProx=document.getElementById('tc-venc-prox').value;
+    await set(ref(db,'tarjetas/'+tc.replace(/ /g,'_')),{nombre:tc,cierreAct,vencAct,cierreProx,vencProx});
     closeModal('modal-tarjeta');
   };
   document.getElementById('modal-tarjeta').classList.add('show');
@@ -1998,6 +2014,17 @@ window.abrirPagarTarjeta=tc=>{
       cat:'Pago tarjeta',subdet:tc,monto,metodo:desde,estado:'Pagado',
       obs:`Pago de resumen tarjeta ${tc} desde ${desde}`,ts:serverTimestamp()
     });
+    // rotar fechas: próximo pasa a ser actual, vaciamos el próximo
+    const config=tarjetas[tc]||{};
+    if(config.cierreProx||config.vencProx){
+      await set(ref(db,'tarjetas/'+tc.replace(/ /g,'_')),{
+        nombre:tc,
+        cierreAct:config.cierreProx||'',
+        vencAct:config.vencProx||'',
+        cierreProx:'',
+        vencProx:''
+      });
+    }
     closeModal('modal-pagar-tc');
   };
   document.getElementById('modal-pagar-tc').classList.add('show');
