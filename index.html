@@ -870,7 +870,7 @@ window.guardar = async () => {
     // recarga manual por si el listener onValue no se dispara
     const snap=await get(movRef);
     registros=[];
-    snap.forEach(c=>registros.push({...c.val(),key:c.key}));
+    snap.forEach(c=>{ registros.push({...c.val(),key:c.key}); });
     registros.sort((a,b)=>{
       const df=(b.fecha||'').localeCompare(a.fecha||'');
       if(df!==0) return df;
@@ -1548,7 +1548,7 @@ const syncLbl=document.getElementById('sync-lbl');
 get(movRef).then(snap=>{
   console.log('[init] get inicial, size:',snap.size);
   registros=[];
-  snap.forEach(c=>registros.push({...c.val(),key:c.key}));
+  snap.forEach(c=>{ registros.push({...c.val(),key:c.key}); });
   registros.sort((a,b)=>{
     const df=(b.fecha||'').localeCompare(a.fecha||'');
     if(df!==0) return df;
@@ -1566,7 +1566,7 @@ get(movRef).then(snap=>{
 
 onValue(movRef,snap=>{
   console.log('[listener movRef] disparado, size:',snap.size);
-  registros=[];snap.forEach(c=>registros.push({...c.val(),key:c.key}));
+  registros=[];snap.forEach(c=>{ registros.push({...c.val(),key:c.key}); });
   console.log('[listener movRef] registros.length:',registros.length);
   registros.sort((a,b)=>{
     const df=(b.fecha||'').localeCompare(a.fecha||'');
@@ -1589,12 +1589,12 @@ onValue(movRef,snap=>{
   syncLbl.textContent='sin conexión';
 });
 
-onValue(remitosRef,snap=>{ remitos=[]; snap.forEach(c=>remitos.push({...c.val(),key:c.key})); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); if(document.getElementById('panel-cosecha').classList.contains('active')) renderRemitos(); });
-onValue(liqRef,snap=>{ liquidaciones=[]; snap.forEach(c=>liquidaciones.push({...c.val(),key:c.key})); liquidaciones.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); if(document.getElementById('panel-liquidaciones').classList.contains('active')) renderLiquidaciones(); });
-onValue(empRef,snap=>{ empleados=[]; snap.forEach(c=>empleados.push({...c.val(),key:c.key})); if(document.getElementById('panel-empleados').classList.contains('active')) renderEmpleados(); });
-onValue(cabRef,snap=>{ caballos=[]; snap.forEach(c=>caballos.push({...c.val(),key:c.key})); if(document.getElementById('panel-caballos').classList.contains('active')) renderCaballos(); });
-onValue(insRef,snap=>{ insumos=[]; snap.forEach(c=>insumos.push({...c.val(),key:c.key})); insumos.sort((a,b)=>a.fecha.localeCompare(b.fecha)); if(document.getElementById('panel-insumos').classList.contains('active')) renderInsumos(); });
-onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>adelantos.push({...c.val(),key:c.key})); adelantos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); });
+onValue(remitosRef,snap=>{ remitos=[]; snap.forEach(c=>{ remitos.push({...c.val(),key:c.key}); }); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); if(document.getElementById('panel-cosecha').classList.contains('active')) renderRemitos(); });
+onValue(liqRef,snap=>{ liquidaciones=[]; snap.forEach(c=>{ liquidaciones.push({...c.val(),key:c.key}); }); liquidaciones.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); if(document.getElementById('panel-liquidaciones').classList.contains('active')) renderLiquidaciones(); });
+onValue(empRef,snap=>{ empleados=[]; snap.forEach(c=>{ empleados.push({...c.val(),key:c.key}); }); if(document.getElementById('panel-empleados').classList.contains('active')) renderEmpleados(); });
+onValue(cabRef,snap=>{ caballos=[]; snap.forEach(c=>{ caballos.push({...c.val(),key:c.key}); }); if(document.getElementById('panel-caballos').classList.contains('active')) renderCaballos(); });
+onValue(insRef,snap=>{ insumos=[]; snap.forEach(c=>{ insumos.push({...c.val(),key:c.key}); }); insumos.sort((a,b)=>a.fecha.localeCompare(b.fecha)); if(document.getElementById('panel-insumos').classList.contains('active')) renderInsumos(); });
+onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>{ adelantos.push({...c.val(),key:c.key}); }); adelantos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); });
 
 // MAQUINARIA LISTENERS — escucha en tiempo real, fusión en memoria al renderizar
 onValue(ref(dbMaq,'registros'),snap=>{
@@ -1612,7 +1612,7 @@ onValue(ref(dbMaq,'registros'),snap=>{
   if(id==='historial') renderHist();
   updateBalance();
 });
-onValue(ref(dbMaq,'mantenimiento'),snap=>{ maqMant=[]; snap.forEach(c=>maqMant.push({...c.val(),key:c.key})); });
+onValue(ref(dbMaq,'mantenimiento'),snap=>{ maqMant=[]; snap.forEach(c=>{ maqMant.push({...c.val(),key:c.key}); }); });
 
 
 
@@ -1647,7 +1647,7 @@ async function hacerBackupSiCorresponde(){
       limite.setDate(limite.getDate()-30);
       const limiteStr=limite.toISOString().slice(0,10);
       const borrar=[];
-      snapBackups.forEach(c=>{ if(c.key<limiteStr) borrar.push(c.key); });
+      snapBackups.forEach(c=>{ if(c.key<limiteStr){ borrar.push(c.key); } });
       for(const fecha of borrar){
         await remove(ref(db,'backups/'+fecha));
         console.log('🗑 Backup viejo eliminado:',fecha);
