@@ -1408,7 +1408,13 @@ const syncLbl=document.getElementById('sync-lbl');
 
 onValue(movRef,snap=>{
   registros=[];snap.forEach(c=>registros.push({...c.val(),key:c.key}));
-  registros.sort((a,b)=>((b.fecha||'').localeCompare(a.fecha||''))||((b.ts||0)-(a.ts||0)));
+  registros.sort((a,b)=>{
+    const df=(b.fecha||'').localeCompare(a.fecha||'');
+    if(df!==0) return df;
+    const ta=typeof b.ts==='number'?b.ts:0;
+    const tb=typeof a.ts==='number'?a.ts:0;
+    return ta-tb;
+  });
   syncDot.classList.add('online');
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
@@ -1417,12 +1423,12 @@ onValue(movRef,snap=>{
   if(fn[id]) fn[id]();
 },()=>{ syncDot.style.background='var(--red)'; syncLbl.textContent='sin conexión'; });
 
-onValue(remitosRef,snap=>{ remitos=[]; snap.forEach(c=>remitos.push({...c.val(),key:c.key})); remitos.sort((a,b)=>b.fecha.localeCompare(a.fecha)); if(document.getElementById('panel-cosecha').classList.contains('active')) renderRemitos(); });
-onValue(liqRef,snap=>{ liquidaciones=[]; snap.forEach(c=>liquidaciones.push({...c.val(),key:c.key})); liquidaciones.sort((a,b)=>b.fecha.localeCompare(a.fecha)); if(document.getElementById('panel-liquidaciones').classList.contains('active')) renderLiquidaciones(); });
+onValue(remitosRef,snap=>{ remitos=[]; snap.forEach(c=>remitos.push({...c.val(),key:c.key})); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); if(document.getElementById('panel-cosecha').classList.contains('active')) renderRemitos(); });
+onValue(liqRef,snap=>{ liquidaciones=[]; snap.forEach(c=>liquidaciones.push({...c.val(),key:c.key})); liquidaciones.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); if(document.getElementById('panel-liquidaciones').classList.contains('active')) renderLiquidaciones(); });
 onValue(empRef,snap=>{ empleados=[]; snap.forEach(c=>empleados.push({...c.val(),key:c.key})); if(document.getElementById('panel-empleados').classList.contains('active')) renderEmpleados(); });
 onValue(cabRef,snap=>{ caballos=[]; snap.forEach(c=>caballos.push({...c.val(),key:c.key})); if(document.getElementById('panel-caballos').classList.contains('active')) renderCaballos(); });
 onValue(insRef,snap=>{ insumos=[]; snap.forEach(c=>insumos.push({...c.val(),key:c.key})); insumos.sort((a,b)=>a.fecha.localeCompare(b.fecha)); if(document.getElementById('panel-insumos').classList.contains('active')) renderInsumos(); });
-onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>adelantos.push({...c.val(),key:c.key})); adelantos.sort((a,b)=>b.fecha.localeCompare(a.fecha)); });
+onValue(adelantosRef,snap=>{ adelantos=[]; snap.forEach(c=>adelantos.push({...c.val(),key:c.key})); adelantos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); });
 
 // MAQUINARIA LISTENERS
 // MAQUINARIA - lectura simple sin auto-sync
@@ -1465,7 +1471,13 @@ window.sincronizarMaquinaria = async () => {
     const movSnapFresh=await get(movRef);
     registros=[];
     movSnapFresh.forEach(c=>registros.push({...c.val(),key:c.key}));
-    registros.sort((a,b)=>((b.fecha||'').localeCompare(a.fecha||''))||((b.ts||0)-(a.ts||0)));
+    registros.sort((a,b)=>{
+      const df=(b.fecha||'').localeCompare(a.fecha||'');
+      if(df!==0) return df;
+      const ta=typeof b.ts==='number'?b.ts:0;
+      const tb=typeof a.ts==='number'?a.ts:0;
+      return ta-tb;
+    });
     syncLbl.textContent=`en línea · ${registros.length} registros`;
     updateBalance();
     renderDash();
