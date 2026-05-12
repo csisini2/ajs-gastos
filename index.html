@@ -1005,8 +1005,29 @@ onAuthStateChanged(auth, user => {
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app-root').style.display='';
     document.getElementById('user-info').textContent = `${user.email}${esAdmin?' · admin':' · solo lectura'}`;
-    // aplicar permisos al renderizado completo
-    setTimeout(aplicarPermisos, 100);
+    // Forzar recarga de datos ahora que hay permisos
+    setTimeout(()=>{
+      if(typeof movRef !== 'undefined'){
+        get(movRef).then(snap=>{
+          registros=[];
+          snap.forEach(c=>{ registros.push({...c.val(),key:c.key}); });
+          registros.sort((a,b)=>{
+            const df=(b.fecha||'').localeCompare(a.fecha||'');
+            if(df!==0) return df;
+            const ta=typeof b.ts==='number'?b.ts:0;
+            const tb=typeof a.ts==='number'?a.ts:0;
+            return ta-tb;
+          });
+          syncDot.classList.add('online');
+          syncLbl.textContent=`en línea · ${registros.length} registros`;
+          if(typeof updateBalance==='function') updateBalance();
+          const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
+          const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();}};
+          if(fn[id]) fn[id]();
+        }).catch(e=>console.warn('Error recargando movRef:',e));
+      }
+      aplicarPermisos();
+    }, 200);
   } else {
     usuarioActual = null;
     esAdmin = false;
@@ -1936,7 +1957,7 @@ window.renderMaqMant = () => {
 const syncDot=document.getElementById('sync-dot');
 const syncLbl=document.getElementById('sync-lbl');
 
-// Carga inicial inmediata con get (más confiable que onValue solo)
+// Carga inicial inmediata con get (silencioso si no hay auth todavía)
 get(movRef).then(snap=>{
   registros=[];
   snap.forEach(c=>{ registros.push({...c.val(),key:c.key}); });
@@ -1953,7 +1974,7 @@ get(movRef).then(snap=>{
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
   const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();}};
   if(fn[id]) fn[id]();
-}).catch(()=>{});
+}).catch(()=>{/* sin auth todavía, se reintentará cuando el usuario haga login */});
 
 onValue(movRef,snap=>{
   registros=[];snap.forEach(c=>{ registros.push({...c.val(),key:c.key}); });
