@@ -1018,7 +1018,7 @@ onAuthStateChanged(auth, user => {
             const tb=typeof a.ts==='number'?a.ts:0;
             return ta-tb;
           });
-          syncDot.classList.add('online');
+          syncDot.classList.add('online'); syncDot.style.background='';
           syncLbl.textContent=`en línea · ${registros.length} registros`;
           if(typeof updateBalance==='function') updateBalance();
           const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
@@ -1968,7 +1968,7 @@ get(movRef).then(snap=>{
     const tb=typeof a.ts==='number'?a.ts:0;
     return ta-tb;
   });
-  syncDot.classList.add('online');
+  syncDot.classList.add('online'); syncDot.style.background='';
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
@@ -1985,7 +1985,7 @@ onValue(movRef,snap=>{
     const tb=typeof a.ts==='number'?a.ts:0;
     return ta-tb;
   });
-  syncDot.classList.add('online');
+  syncDot.classList.add('online'); syncDot.style.background='';
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
