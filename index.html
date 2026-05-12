@@ -204,6 +204,7 @@ tr:hover td{background:var(--bg3)}
   <button class="nav-btn" onclick="showTab('insumos',this)">Insumos</button>
   <button class="nav-btn" onclick="showTab('maquinaria',this)">Maquinaria</button>
   <button class="nav-btn" onclick="showTab('notas',this)">📌 Notas</button>
+  <button class="nav-btn" onclick="showTab('recurrentes',this)">🔁 Recurrentes</button>
   <button class="nav-btn" onclick="showTab('reporte',this)">Reporte</button>
   <button class="nav-btn" onclick="showTab('unidades',this)">Por unidad</button>
 </div>
@@ -805,6 +806,88 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 
+<div id="panel-recurrentes" class="panel">
+  <div class="card">
+    <div id="alert-rec"></div>
+    <div class="card-title">🔁 Nuevo gasto fijo mensual</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Ej: Starlink, Netflix, prepaga. Se genera automático cada mes.</div>
+    <div class="form-grid">
+      <div class="field"><label>Detalle</label><input type="text" id="rec-detalle" placeholder="ej: Starlink"></div>
+      <div class="field"><label>Monto ($)</label><input type="number" id="rec-monto" placeholder="0"></div>
+      <div class="field"><label>Día del mes que se debita (1-31)</label><input type="number" id="rec-dia" min="1" max="31" placeholder="ej: 5"></div>
+      <div class="field"><label>Método de pago</label>
+        <select id="rec-metodo">
+          <option value="Efectivo">Efectivo</option>
+          <option value="Transferencia">Transferencia</option>
+          <option value="Cuenta Galicia">Cuenta Galicia</option>
+          <option value="Cuenta corriente">Cuenta corriente</option>
+          <option value="CC SAN VICENTE">CC SAN VICENTE</option>
+          <option value="CC MACRO">CC MACRO</option>
+          <optgroup label="Tarjetas crédito">
+            <option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="field"><label>Responsable</label>
+        <select id="rec-resp"><option>CARLOS</option><option>FERNANDO</option><option>ALBERTO</option></select>
+      </div>
+      <div class="field"><label>Unidad</label>
+        <select id="rec-unidad"><option>U1</option><option>U4</option><option>U5</option><option>U6</option><option>Personal</option><option>Lavanderia</option></select>
+      </div>
+      <div class="field"><label>Categoría</label><input type="text" id="rec-cat" placeholder="ej: Casa, Servicios"></div>
+      <div class="field"><label>Fecha desde la cual aplica</label><input type="date" id="rec-desde"></div>
+      <div class="field"><label>Hasta (opcional, vacío = sin fin)</label><input type="date" id="rec-hasta"></div>
+    </div>
+    <div class="row-btns">
+      <button class="btn btn-primary" onclick="guardarFijo()">Guardar gasto fijo</button>
+      <button class="btn btn-ghost" onclick="limpiarFijo()">Limpiar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="alert-cuota"></div>
+    <div class="card-title">📅 Nueva compra en cuotas</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Ej: Heladera en 12 cuotas. La app genera las cuotas restantes con fechas correctas.</div>
+    <div class="form-grid">
+      <div class="field"><label>Detalle</label><input type="text" id="cu-detalle" placeholder="ej: Heladera Whirlpool"></div>
+      <div class="field"><label>Monto por cuota ($)</label><input type="number" id="cu-monto" placeholder="0"></div>
+      <div class="field"><label>Cantidad total de cuotas</label><input type="number" id="cu-total" min="2" placeholder="ej: 12"></div>
+      <div class="field"><label>Cuotas ya pagadas</label><input type="number" id="cu-pagadas" min="0" value="0"></div>
+      <div class="field"><label>Próxima cuota: fecha</label><input type="date" id="cu-proxima"></div>
+      <div class="field"><label>Método de pago</label>
+        <select id="cu-metodo">
+          <option value="">— elegí —</option>
+          <optgroup label="Tarjetas crédito">
+            <option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option>
+          </optgroup>
+          <option>Efectivo</option><option>Transferencia</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option>
+        </select>
+      </div>
+      <div class="field"><label>Responsable</label>
+        <select id="cu-resp"><option>CARLOS</option><option>FERNANDO</option><option>ALBERTO</option></select>
+      </div>
+      <div class="field"><label>Unidad</label>
+        <select id="cu-unidad"><option>U1</option><option>U4</option><option>U5</option><option>U6</option><option>Personal</option><option>Lavanderia</option></select>
+      </div>
+      <div class="field"><label>Categoría</label><input type="text" id="cu-cat" placeholder="ej: Casa, Herramientas"></div>
+    </div>
+    <div class="row-btns">
+      <button class="btn btn-primary" onclick="guardarCuota()">Guardar compra en cuotas</button>
+      <button class="btn btn-ghost" onclick="limpiarCuota()">Limpiar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Gastos fijos activos</div>
+    <div id="fijos-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Compras en cuotas activas</div>
+    <div id="cuotas-list"></div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, push, set, get, onValue, onChildAdded, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
@@ -845,11 +928,13 @@ const insRef = ref(db,'insumos');
 const adelantosRef = ref(db,'adelantos');
 const tarjetasRef = ref(db,'tarjetas');
 const notasRef = ref(db,'notas');
+const fijosRef = ref(db,'fijos');
+const cuotasRef = ref(db,'cuotas');
 
 // STATE
 let registros=[], remitos=[], liquidaciones=[], empleados=[], caballos=[], insumos=[], adelantos=[];
 let maqGasoil=[], maqMant=[];
-let tarjetas={}, notas=[];
+let tarjetas={}, notas=[], fijos=[], cuotas=[];
 let histFiltro='todos', tipoActual='gasto', editKey=null, kilosKey=null, vistaHist='cards', notasFiltro='activas';
 
 // HELPERS
@@ -903,7 +988,7 @@ window.showTab = (t,el) => {
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+t).classList.add('active');
   if(el) el.classList.add('active');
-  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,cosecha:renderRemitos,liquidaciones:renderLiquidaciones,empleados:renderEmpleados,caballos:renderCaballos,insumos:renderInsumos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas};
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,cosecha:renderRemitos,liquidaciones:renderLiquidaciones,empleados:renderEmpleados,caballos:renderCaballos,insumos:renderInsumos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();}};
   if(fn[t]) fn[t]();
 };
 
@@ -1027,7 +1112,7 @@ window.guardar = async () => {
     syncLbl.textContent=`en línea · ${registros.length} registros`;
     updateBalance();
     const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-    const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas};
+    const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();}};
     if(fn[id]) fn[id]();
     showAlert('alert-nuevo','✓ Guardado correctamente','ok');
     limpiar();
@@ -1761,7 +1846,7 @@ get(movRef).then(snap=>{
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas};
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();}};
   if(fn[id]) fn[id]();
 }).catch(()=>{});
 
@@ -1778,7 +1863,7 @@ onValue(movRef,snap=>{
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas};
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();}};
   if(fn[id]) fn[id]();
 },(err)=>{
   syncDot.style.background='var(--red)';
@@ -2135,6 +2220,220 @@ onValue(notasRef,snap=>{
   snap.forEach(c=>{ notas.push({...c.val(),key:c.key}); });
   if(document.getElementById('panel-notas').classList.contains('active')) renderNotas();
   if(document.getElementById('panel-dashboard').classList.contains('active')) renderDash();
+});
+
+
+// ═══════════════════════════════════════════════════════════════
+// GASTOS FIJOS MENSUALES + COMPRAS EN CUOTAS
+// ═══════════════════════════════════════════════════════════════
+
+window.guardarFijo=async()=>{
+  const detalle=document.getElementById('rec-detalle').value.trim();
+  const monto=parseFloat(document.getElementById('rec-monto').value)||0;
+  const dia=parseInt(document.getElementById('rec-dia').value)||0;
+  const metodo=document.getElementById('rec-metodo').value;
+  const resp=document.getElementById('rec-resp').value;
+  const unidad=document.getElementById('rec-unidad').value;
+  const cat=document.getElementById('rec-cat').value.trim();
+  const desde=document.getElementById('rec-desde').value||today();
+  const hasta=document.getElementById('rec-hasta').value||'';
+  if(!detalle||!monto||!dia||dia>31||dia<1){
+    showAlert('alert-rec','Completá detalle, monto y día del mes válido (1-31)','err');
+    return;
+  }
+  try{
+    await push(fijosRef,{detalle,monto,dia,metodo,resp,unidad,cat,desde,hasta,activo:true,ts:serverTimestamp()});
+    showAlert('alert-rec','✓ Gasto fijo guardado','ok');
+    limpiarFijo();
+  }catch(e){
+    showAlert('alert-rec','Error al guardar','err');
+  }
+};
+
+window.limpiarFijo=()=>{
+  ['rec-detalle','rec-monto','rec-dia','rec-cat','rec-desde','rec-hasta'].forEach(id=>document.getElementById(id).value='');
+};
+
+window.eliminarFijo=key=>{
+  confirmDelete(async()=>{ await remove(ref(db,'fijos/'+key)); });
+};
+
+window.pausarFijo=async(key,nuevoEstado)=>{
+  await set(ref(db,'fijos/'+key+'/activo'),nuevoEstado);
+};
+
+window.guardarCuota=async()=>{
+  const detalle=document.getElementById('cu-detalle').value.trim();
+  const monto=parseFloat(document.getElementById('cu-monto').value)||0;
+  const total=parseInt(document.getElementById('cu-total').value)||0;
+  const pagadas=parseInt(document.getElementById('cu-pagadas').value)||0;
+  const proxima=document.getElementById('cu-proxima').value;
+  const metodo=document.getElementById('cu-metodo').value;
+  const resp=document.getElementById('cu-resp').value;
+  const unidad=document.getElementById('cu-unidad').value;
+  const cat=document.getElementById('cu-cat').value.trim();
+  if(!detalle||!monto||!total||total<2||!proxima||!metodo){
+    showAlert('alert-cuota','Completá todos los campos obligatorios','err');
+    return;
+  }
+  if(pagadas>=total){
+    showAlert('alert-cuota','Las cuotas pagadas no pueden ser iguales o mayores al total','err');
+    return;
+  }
+  try{
+    await push(cuotasRef,{detalle,monto,total,pagadas,proxima,metodo,resp,unidad,cat,activo:true,ts:serverTimestamp()});
+    showAlert('alert-cuota','✓ Compra en cuotas guardada','ok');
+    limpiarCuota();
+  }catch(e){
+    showAlert('alert-cuota','Error al guardar','err');
+  }
+};
+
+window.limpiarCuota=()=>{
+  ['cu-detalle','cu-monto','cu-total','cu-proxima','cu-cat'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cu-pagadas').value='0';
+};
+
+window.eliminarCuota=key=>{
+  confirmDelete(async()=>{ await remove(ref(db,'cuotas/'+key)); });
+};
+
+// Generar los gastos automáticos que correspondan según las fechas
+async function generarRecurrentes(){
+  const hoy=today();
+  const hoyDate=new Date(hoy);
+
+  // ── GASTOS FIJOS ─────────────────────────────────────────────
+  for(const f of fijos){
+    if(!f.activo) continue;
+    if(f.hasta&&f.hasta<hoy) continue; // ya terminó
+    const desde=f.desde||hoy;
+    // generar para cada mes entre 'desde' y 'hoy' que no exista
+    const dStart=new Date(desde);
+    let cursor=new Date(dStart.getFullYear(),dStart.getMonth(),f.dia);
+    if(cursor<dStart) cursor=new Date(dStart.getFullYear(),dStart.getMonth()+1,f.dia);
+    while(cursor<=hoyDate){
+      const fechaStr=cursor.toISOString().slice(0,10);
+      if(f.hasta&&fechaStr>f.hasta) break;
+      // ¿ya existe un movimiento generado para este mes/fijo?
+      const yaExiste=registros.some(r=>r.fijoKey===f.key&&r.fecha===fechaStr);
+      if(!yaExiste){
+        await push(movRef,{
+          tipo:'gasto',fecha:fechaStr,detalle:f.detalle,resp:f.resp,unidad:f.unidad,
+          cat:f.cat||'',subdet:'',zafra:'',monto:f.monto,metodo:f.metodo,estado:'Pagado',
+          prov:'',obs:`🔁 Gasto fijo mensual`,chequeVenc:'',
+          fijoKey:f.key,ts:serverTimestamp()
+        });
+      }
+      cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,f.dia);
+    }
+  }
+
+  // ── CUOTAS ───────────────────────────────────────────────────
+  for(const c of cuotas){
+    if(!c.activo) continue;
+    let proxima=c.proxima;
+    let cuotaNum=(c.pagadas||0)+1;
+    let cambios=false;
+    const totalCuotas=c.total;
+    while(proxima<=hoy&&cuotaNum<=totalCuotas){
+      // ¿ya existe el movimiento para esta cuota?
+      const yaExiste=registros.some(r=>r.cuotaKey===c.key&&r.cuotaNum===cuotaNum);
+      if(!yaExiste){
+        await push(movRef,{
+          tipo:'gasto',fecha:proxima,detalle:`${c.detalle} · cuota ${cuotaNum}/${totalCuotas}`,
+          resp:c.resp,unidad:c.unidad,cat:c.cat||'',subdet:'',zafra:'',
+          monto:c.monto,metodo:c.metodo,estado:'Pagado',
+          prov:'',obs:`📅 Cuota ${cuotaNum} de ${totalCuotas}`,chequeVenc:'',
+          cuotaKey:c.key,cuotaNum,ts:serverTimestamp()
+        });
+        cambios=true;
+      }
+      // calcular próxima cuota: +1 mes
+      const d=new Date(proxima);
+      d.setMonth(d.getMonth()+1);
+      proxima=d.toISOString().slice(0,10);
+      cuotaNum++;
+    }
+    // si se generaron cuotas, actualizar 'proxima' y 'pagadas'
+    if(cambios){
+      await set(ref(db,'cuotas/'+c.key),{...c,proxima,pagadas:cuotaNum-1});
+    }
+    // si ya se completaron todas las cuotas, marcar inactivo
+    if(cuotaNum>totalCuotas&&c.activo){
+      await set(ref(db,'cuotas/'+c.key+'/activo'),false);
+    }
+  }
+}
+
+function renderFijos(){
+  const cont=document.getElementById('fijos-list');
+  if(!fijos.length){ cont.innerHTML='<div class="empty"><div class="empty-icon">🔁</div>Sin gastos fijos cargados</div>'; return; }
+  const data=fijos.slice().sort((a,b)=>(a.detalle||'').localeCompare(b.detalle||''));
+  cont.innerHTML=data.map(f=>{
+    const inactivo=!f.activo;
+    return`<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${inactivo?'var(--text3)':'var(--teal)'};border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;${inactivo?'opacity:.6':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:500">${f.detalle}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">Día ${f.dia} · ${f.metodo} · ${f.resp} · ${f.unidad}${f.cat?' · '+f.cat:''}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Desde ${f.desde}${f.hasta?' hasta '+f.hasta:' (sin fin)'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--red)">−${fmt(f.monto)}</div>
+          <div style="display:flex;gap:4px;margin-top:6px;justify-content:flex-end">
+            <button class="btn-edit btn-sm" onclick="pausarFijo('${f.key}',${!f.activo})" title="${inactivo?'Activar':'Pausar'}">${inactivo?'▶':'⏸'}</button>
+            <button class="btn-del btn-sm" onclick="eliminarFijo('${f.key}')">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCuotas(){
+  const cont=document.getElementById('cuotas-list');
+  if(!cuotas.length){ cont.innerHTML='<div class="empty"><div class="empty-icon">📅</div>Sin compras en cuotas</div>'; return; }
+  const data=cuotas.slice().sort((a,b)=>(b.activo?1:0)-(a.activo?1:0));
+  cont.innerHTML=data.map(c=>{
+    const cuotaActual=(c.pagadas||0)+1;
+    const restantes=c.total-(c.pagadas||0);
+    const totalAdeudado=restantes*c.monto;
+    const completa=cuotaActual>c.total||!c.activo;
+    return`<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${completa?'var(--text3)':'var(--amber)'};border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;${completa?'opacity:.6':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:500">${c.detalle}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">${c.metodo} · ${c.resp} · ${c.unidad}${c.cat?' · '+c.cat:''}</div>
+          <div style="font-size:12px;margin-top:6px">
+            ${completa?`<span style="color:var(--green)">✓ Pagada completa (${c.total}/${c.total})</span>`:`Próxima: <strong>cuota ${cuotaActual}/${c.total}</strong> · ${c.proxima}`}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--red)">−${fmt(c.monto)}</div>
+          <div style="font-size:10px;color:var(--text3)">x ${restantes} restantes</div>
+          <div style="font-size:10px;color:var(--red)">Total: ${fmt(totalAdeudado)}</div>
+          <div style="margin-top:4px"><button class="btn-del btn-sm" onclick="eliminarCuota('${c.key}')">✕</button></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// LISTENERS para fijos y cuotas
+onValue(fijosRef,snap=>{
+  fijos=[];
+  snap.forEach(c=>{ fijos.push({...c.val(),key:c.key}); });
+  if(document.getElementById('panel-recurrentes').classList.contains('active')) renderFijos();
+  // generar automáticamente lo que falte
+  generarRecurrentes();
+});
+
+onValue(cuotasRef,snap=>{
+  cuotas=[];
+  snap.forEach(c=>{ cuotas.push({...c.val(),key:c.key}); });
+  if(document.getElementById('panel-recurrentes').classList.contains('active')) renderCuotas();
+  generarRecurrentes();
 });
 
 
