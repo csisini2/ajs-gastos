@@ -178,12 +178,32 @@ tr:hover td{background:var(--bg3)}
 </head>
 <body>
 
+<!-- PANTALLA DE LOGIN -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="max-width:380px;width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:28px 24px">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:28px;font-weight:600;letter-spacing:-.02em">AJS</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:4px">empresa familiar Sisini</div>
+    </div>
+    <div id="login-alert"></div>
+    <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="tu@email.com" autocomplete="username"></div>
+    <div class="field" style="margin-top:10px"><label>Contraseña</label><input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="iniciarSesion()" id="login-btn">Ingresar</button>
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:14px">Acceso restringido. Solo usuarios autorizados.</div>
+  </div>
+</div>
+
+<!-- APP (oculta hasta que loguee) -->
+<div id="app-root" style="display:none">
+
 <div class="header">
   <div>
     <div class="logo">AJS <span>/ empresa familiar</span></div>
     <div class="sync-row">
       <span class="sync-dot" id="sync-dot"></span>
       <span id="sync-lbl">conectando...</span>
+      <span id="user-info" style="margin-left:12px;font-size:11px;color:var(--text3)"></span>
+      <button id="logout-btn" onclick="cerrarSesion()" style="margin-left:8px;background:transparent;border:1px solid var(--border);color:var(--text3);font-size:10px;padding:3px 8px;border-radius:var(--radius-xs);cursor:pointer">Salir</button>
     </div>
   </div>
   <div class="header-balance">
@@ -888,9 +908,12 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 
+</div><!-- fin app-root -->
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, push, set, get, onValue, onChildAdded, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 // APP PRINCIPAL - AJS GASTOS
 const cfgGastos = {
@@ -917,6 +940,88 @@ const cfgMaq = {
 const appGastos = initializeApp(cfgGastos);
 const appMaq = initializeApp(cfgMaq,'maquinaria');
 const db = getDatabase(appGastos);
+
+// AUTENTICACIÓN
+const auth = getAuth(appGastos);
+const ADMIN_EMAIL = 'csisini2@gmail.com';
+let usuarioActual = null;
+let esAdmin = false;
+
+window.iniciarSesion = async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const btn = document.getElementById('login-btn');
+  if(!email || !pass){
+    showAlert('login-alert','Completá email y contraseña','err');
+    return;
+  }
+  btn.textContent='Ingresando...'; btn.disabled=true;
+  try{
+    await signInWithEmailAndPassword(auth, email, pass);
+    // onAuthStateChanged se va a encargar del resto
+  }catch(e){
+    let msg = 'Error de acceso';
+    if(e.code==='auth/invalid-credential'||e.code==='auth/wrong-password') msg='Email o contraseña incorrectos';
+    else if(e.code==='auth/user-not-found') msg='Usuario no encontrado';
+    else if(e.code==='auth/too-many-requests') msg='Demasiados intentos. Esperá unos minutos.';
+    else if(e.code==='auth/network-request-failed') msg='Sin conexión a internet';
+    showAlert('login-alert',msg,'err');
+    btn.textContent='Ingresar'; btn.disabled=false;
+  }
+};
+
+window.cerrarSesion = async () => {
+  if(!confirm('¿Cerrar sesión?')) return;
+  await signOut(auth);
+};
+
+// Aplicar permisos según rol
+function aplicarPermisos(){
+  if(esAdmin) return; // admin ve todo
+  // Modo solo-lectura: ocultar botones de acciones destructivas
+  document.querySelectorAll('.btn-primary,.btn-edit,.btn-del,#btn-guardar').forEach(b=>{
+    b.style.display='none';
+  });
+  // Bloquear inputs y selects de formularios
+  document.querySelectorAll('input,select,textarea').forEach(el=>{
+    if(el.id.startsWith('login-')||el.id==='search-input'||el.id.startsWith('filtro-')) return;
+    el.disabled=true;
+  });
+  // Banner indicador
+  if(!document.getElementById('readonly-banner')){
+    const b=document.createElement('div');
+    b.id='readonly-banner';
+    b.style.cssText='background:var(--amber-bg);color:var(--amber);text-align:center;padding:6px;font-size:12px;border-bottom:1px solid var(--amber)';
+    b.textContent='👁 Modo solo lectura — no podés editar';
+    document.body.insertBefore(b, document.getElementById('app-root'));
+  }
+}
+
+// Manejar cambios de estado de auth
+onAuthStateChanged(auth, user => {
+  if(user){
+    usuarioActual = user;
+    esAdmin = (user.email === ADMIN_EMAIL);
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-root').style.display='';
+    document.getElementById('user-info').textContent = `${user.email}${esAdmin?' · admin':' · solo lectura'}`;
+    // aplicar permisos al renderizado completo
+    setTimeout(aplicarPermisos, 100);
+  } else {
+    usuarioActual = null;
+    esAdmin = false;
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('app-root').style.display='none';
+    document.getElementById('login-email').value='';
+    document.getElementById('login-pass').value='';
+    document.getElementById('login-btn').textContent='Ingresar';
+    document.getElementById('login-btn').disabled=false;
+  }
+});
+
+// Enter en el login envía el formulario
+document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') iniciarSesion(); });
+document.getElementById('login-email').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('login-pass').focus(); });
 const dbMaq = getDatabase(appMaq);
 
 const movRef = ref(db,'movimientos');
