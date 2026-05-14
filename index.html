@@ -286,16 +286,19 @@ tr:hover td{background:var(--bg3)}
     </div>
     <div class="fg">
       <div class="field"><label>Monto ARS</label><input type="number" id="edit-monto" inputmode="numeric"></div>
-      <div class="field"><label>Método</label>
-        <select id="edit-metodo"><option>Efectivo</option><option>Transferencia</option><option>Mercado Pago</option><option>Cuenta corriente</option><option>cheque</option><option>CC SAN VICENTE</option><option>CC MACRO</option><option>Cuenta Galicia</option><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup><option>Otro</option></select>
+      <div class="field"><label>Cuenta de origen</label>
+        <select id="edit-metodo"><option>Efectivo</option><option>efectivo caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup><option>Otro</option></select>
       </div>
     </div>
     <div class="fg">
+      <div class="field"><label>Forma de pago</label>
+        <select id="edit-forma"><option value="">— —</option><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Débito</option><option>Tarjeta</option><option>Otro</option></select>
+      </div>
       <div class="field"><label>Estado</label>
         <select id="edit-estado"><option>Pagado</option><option>Pendiente</option><option>Cobrado</option></select>
       </div>
-      <div class="field"><label>Observaciones</label><input type="text" id="edit-obs"></div>
     </div>
+    <div class="field"><label>Observaciones</label><input type="text" id="edit-obs"></div>
     <div class="modal-btns">
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-edit')">Cancelar</button>
       <button class="btn btn-primary btn-sm" onclick="guardarEdicion()">Guardar cambios</button>
@@ -423,17 +426,24 @@ tr:hover td{background:var(--bg3)}
     </div>
     <div class="fg">
       <div class="field"><label>Monto (ARS)</label><input type="number" id="n-monto" placeholder="0" min="0" inputmode="numeric"></div>
-      <div class="field"><label>Método de pago</label>
-        <select id="n-metodo" onchange="document.getElementById('cheque-venc-field').style.display=this.value==='cheque'?'':'none'"><option value="">— —</option><option>Efectivo</option><option>Transferencia</option><option>Mercado Pago</option><option>Cuenta corriente</option><option>cheque</option><option>efectivo caballos</option><option>CC SAN VICENTE</option><option>CC MACRO</option><option>Cuenta Galicia</option><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup><option>Otro</option></select>
+      <div class="field"><label>Cuenta de origen</label>
+        <select id="n-metodo" onchange="onCuentaChange('n')"><option value="">— —</option><option>Efectivo</option><option>efectivo caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup><option>Otro</option></select>
       </div>
     </div>
     <div class="fg">
+      <div class="field"><label>Forma de pago</label>
+        <select id="n-forma" onchange="document.getElementById('cheque-venc-field').style.display=this.value==='Cheque'?'':'none'">
+          <option value="">— —</option><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Débito</option><option>Tarjeta</option><option>Otro</option>
+        </select>
+      </div>
       <div class="field"><label id="estado-lbl">Estado del pago</label>
         <select id="n-estado"><option>Pagado</option><option>Pendiente</option></select>
       </div>
-      <div class="field"><label>Proveedor (opcional)</label><input type="text" id="n-prov" placeholder="Ej: San Vicente, Gele..."></div>
     </div>
-    <div class="field"><label>Observaciones (opcional)</label><input type="text" id="n-obs" placeholder="Notas adicionales"></div>
+    <div class="fg">
+      <div class="field"><label>Proveedor (opcional)</label><input type="text" id="n-prov" placeholder="Ej: San Vicente, Gele..."></div>
+      <div class="field"><label>Observaciones (opcional)</label><input type="text" id="n-obs" placeholder="Notas adicionales"></div>
+    </div>
     <div class="field" id="cheque-venc-field" style="display:none"><label>Fecha vencimiento cheque</label><input type="date" id="n-cheque-venc"></div>
     <div class="row-btns">
       <button class="btn btn-primary" onclick="guardar()" id="btn-guardar">▼ Guardar gasto</button>
@@ -888,10 +898,11 @@ tr:hover td{background:var(--bg3)}
       <div class="field"><label>Detalle</label><input type="text" id="rec-detalle" placeholder="ej: Starlink"></div>
       <div class="field"><label>Monto ($)</label><input type="number" id="rec-monto" placeholder="0"></div>
       <div class="field"><label>Día del mes que se debita (1-31)</label><input type="number" id="rec-dia" min="1" max="31" placeholder="ej: 5"></div>
-      <div class="field"><label>Método de pago</label>
-        <select id="rec-metodo">
+      <div class="field"><label>Cuenta de origen</label>
+        <select id="rec-metodo" onchange="onCuentaChange('rec')">
           <option value="Efectivo">Efectivo</option>
-          <option value="Transferencia">Transferencia</option>
+          <option value="efectivo caballos">efectivo caballos</option>
+          <option value="Mercado Pago">Mercado Pago</option>
           <option value="Cuenta Galicia">Cuenta Galicia</option>
           <option value="Cuenta corriente">Cuenta corriente</option>
           <option value="CC SAN VICENTE">CC SAN VICENTE</option>
@@ -899,6 +910,11 @@ tr:hover td{background:var(--bg3)}
           <optgroup label="Tarjetas crédito">
             <option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option>
           </optgroup>
+        </select>
+      </div>
+      <div class="field"><label>Forma de pago</label>
+        <select id="rec-forma">
+          <option value="">— —</option><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Débito</option><option>Tarjeta</option><option>Otro</option>
         </select>
       </div>
       <div class="field"><label>Responsable</label>
@@ -951,13 +967,18 @@ tr:hover td{background:var(--bg3)}
       <div class="field"><label>Cantidad total de cuotas</label><input type="number" id="cu-total" min="2" placeholder="ej: 12"></div>
       <div class="field"><label>Cuotas ya pagadas</label><input type="number" id="cu-pagadas" min="0" value="0"></div>
       <div class="field"><label>Próxima cuota: fecha</label><input type="date" id="cu-proxima"></div>
-      <div class="field"><label>Método de pago</label>
-        <select id="cu-metodo">
+      <div class="field"><label>Cuenta de origen</label>
+        <select id="cu-metodo" onchange="onCuentaChange('cu')">
           <option value="">— elegí —</option>
           <optgroup label="Tarjetas crédito">
             <option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option>
           </optgroup>
-          <option>Efectivo</option><option>Transferencia</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option>
+          <option>Efectivo</option><option>efectivo caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option>
+        </select>
+      </div>
+      <div class="field"><label>Forma de pago</label>
+        <select id="cu-forma">
+          <option value="">— —</option><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Débito</option><option>Tarjeta</option><option>Otro</option>
         </select>
       </div>
       <div class="field"><label>Responsable</label>
@@ -1186,6 +1207,7 @@ function getAllMovimientos(){
     cat:'Campo/combustible',
     monto:Number(r.costo)||0,
     metodo:r.metodo||'Efectivo',
+    forma:r.forma||'',
     estado:'Pagado',
     obs:`Carga estación · importado de maquinaria`,
     _esMaquinaria:true
@@ -1279,7 +1301,7 @@ document.getElementById('n-cat').addEventListener('change', function(){
 
 window.limpiar = () => {
   ['n-fecha','n-detalle','n-prov','n-obs','n-monto'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
-  ['n-resp','n-unidad','n-cat','n-subdet','n-metodo','n-icat','n-zafra'].forEach(id=>{ const e=document.getElementById(id); if(e) e.selectedIndex=0; });
+  ['n-resp','n-unidad','n-cat','n-subdet','n-metodo','n-forma','n-icat','n-zafra'].forEach(id=>{ const e=document.getElementById(id); if(e) e.selectedIndex=0; });
   document.getElementById('n-estado').selectedIndex=0;
   document.getElementById('n-subdet-libre').value='';
   document.getElementById('n-subdet-libre').style.display='none';
@@ -1299,6 +1321,21 @@ function showAlert(id,msg,type='ok'){
 }
 
 // GUARDAR MOVIMIENTO
+// Cuando elige la cuenta de origen, sugiere automáticamente la forma de pago
+window.onCuentaChange = prefijo => {
+  const cuenta=document.getElementById(prefijo+'-metodo').value;
+  const formaSel=document.getElementById(prefijo+'-forma');
+  if(!formaSel) return;
+  // sugerencias automáticas (el usuario puede cambiarla igual)
+  if(cuenta==='Efectivo'||cuenta==='efectivo caballos') formaSel.value='Efectivo';
+  else if(cuenta.startsWith('TC ')) formaSel.value='Tarjeta';
+  else if(cuenta==='Mercado Pago') formaSel.value='Transferencia';
+  // para cuentas bancarias (Galicia, Macro, etc.) no autoselecciona: puede ser cheque o transferencia
+  // disparar el onchange de forma para actualizar el campo de vencimiento de cheque
+  const chf=document.getElementById('cheque-venc-field');
+  if(chf) chf.style.display=formaSel.value==='Cheque'?'':'none';
+};
+
 window.guardar = async () => {
   const fecha=document.getElementById('n-fecha').value||today();
   const detalle=document.getElementById('n-detalle').value.trim();
@@ -1306,8 +1343,9 @@ window.guardar = async () => {
   const unidad=document.getElementById('n-unidad').value;
   const monto=parseFloat(document.getElementById('n-monto').value)||0;
   const metodo=document.getElementById('n-metodo').value;
+  const forma=document.getElementById('n-forma').value;
   if(!detalle||!resp||!unidad||!monto||!metodo){
-    showAlert('alert-nuevo','Completá los campos obligatorios: detalle, responsable, unidad, monto y método.','err');
+    showAlert('alert-nuevo','Completá los campos obligatorios: detalle, responsable, unidad, monto y cuenta de origen.','err');
     return;
   }
   const rec={
@@ -1315,10 +1353,10 @@ window.guardar = async () => {
     cat:tipoActual==='gasto'?(document.getElementById('n-cat').value==='__otro__'?document.getElementById('n-cat-libre').value:document.getElementById('n-cat').value):document.getElementById('n-icat').value,
     subdet:tipoActual==='gasto'?(document.getElementById('n-subdet').value==='__otro__'?document.getElementById('n-subdet-libre').value:document.getElementById('n-subdet').value):'',
     zafra:document.getElementById('n-zafra')?document.getElementById('n-zafra').value:'',
-    monto,metodo,estado:document.getElementById('n-estado').value,
+    monto,metodo,forma,estado:document.getElementById('n-estado').value,
     prov:document.getElementById('n-prov').value,
     obs:document.getElementById('n-obs').value,
-    chequeVenc:document.getElementById('n-metodo').value==='cheque'?document.getElementById('n-cheque-venc').value:'',
+    chequeVenc:forma==='Cheque'?document.getElementById('n-cheque-venc').value:'',
     ts:serverTimestamp()
   };
   const btn=document.getElementById('btn-guardar');
@@ -1361,6 +1399,7 @@ window.editarMov = key => {
   document.getElementById('edit-unidad').value=r.unidad||'U1';
   document.getElementById('edit-monto').value=r.monto||0;
   document.getElementById('edit-metodo').value=r.metodo||'Efectivo';
+  document.getElementById('edit-forma').value=r.forma||'';
   document.getElementById('edit-estado').value=r.estado||'Pagado';
   document.getElementById('edit-obs').value=r.obs||'';
   // categoría: si el valor existe como opción la selecciona, si no usa "Otro" + texto libre
@@ -1408,6 +1447,7 @@ window.guardarEdicion = async () => {
     unidad:document.getElementById('edit-unidad').value,
     monto:parseFloat(document.getElementById('edit-monto').value)||0,
     metodo:document.getElementById('edit-metodo').value,
+    forma:document.getElementById('edit-forma').value,
     estado:document.getElementById('edit-estado').value,
     obs:document.getElementById('edit-obs').value,
     cat,subdet,
@@ -1588,16 +1628,21 @@ function getFilteredHist(){
   const fMes=document.getElementById('filtro-mes').value;
   const fZafra=document.getElementById('filtro-zafra').value;
   const q=(document.getElementById('search-input').value||'').toLowerCase().trim();
+  console.log('[búsqueda] query:',JSON.stringify(q));
   let data=getAllMovimientos();
+  console.log('[búsqueda] total antes de filtrar:',data.length);
   if(histFiltro==='gasto'||histFiltro==='ingreso') data=data.filter(r=>r.tipo===histFiltro);
   else if(['U1','U4','U5','U6','Personal','Lavanderia'].includes(histFiltro)) data=data.filter(r=>r.unidad===histFiltro);
   else if(histFiltro==='Pendiente') data=data.filter(r=>r.estado==='Pendiente');
-  else if(histFiltro==='cheque') data=data.filter(r=>r.metodo==='cheque');
+  else if(histFiltro==='cheque') data=data.filter(r=>r.metodo==='cheque'||r.forma==='Cheque');
   else if(histFiltro==='adelanto') data=data.filter(r=>!r._esMaquinaria&&(r.cat||'').toLowerCase().includes('adelanto'));
   if(fResp) data=data.filter(r=>r.resp===fResp);
   if(fMes) data=data.filter(r=>r.fecha&&r.fecha.slice(5,7)===fMes);
   if(fZafra) data=data.filter(r=>r.zafra===fZafra);
-  if(q) data=data.filter(r=>[r.detalle,r.cat,r.prov,r.obs,r.subdet].join(' ').toLowerCase().includes(q));
+  if(q){
+    data=data.filter(r=>[r.detalle,r.cat,r.prov,r.obs,r.subdet].filter(Boolean).join(' ').toLowerCase().includes(q));
+    console.log('[búsqueda] resultados después de filtrar por texto:',data.length);
+  }
   // ordenamiento
   const orden=document.getElementById('filtro-orden')?.value||'fecha-desc';
   if(orden==='fecha-desc') data.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
@@ -1677,7 +1722,7 @@ function renderProyeccion30(){
   const eventos=[]; // {fecha, detalle, monto, tipo}
 
   // 1) Cheques pendientes con fecha de vencimiento en los próximos 30 días
-  registros.filter(r=>r.metodo==='cheque'&&r.estado==='Pendiente'&&r.chequeVenc).forEach(r=>{
+  registros.filter(r=>(r.metodo==='cheque'||r.forma==='Cheque')&&r.estado==='Pendiente'&&r.chequeVenc).forEach(r=>{
     if(r.chequeVenc>=hoy&&r.chequeVenc<=limiteStr){
       eventos.push({fecha:r.chequeVenc,detalle:`Cheque: ${r.detalle}`,monto:r.monto,tipo:'cheque'});
     }
@@ -1813,7 +1858,7 @@ function renderDash(){
   document.getElementById('chart-meses').innerHTML=`<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;height:80px">${Object.entries(totMes).map(([m,v])=>`<div style="display:flex;flex-direction:column;align-items:center;gap:3px"><div style="width:100%;background:var(--blue);border-radius:2px 2px 0 0;height:${Math.round(v/maxM*60)+4}px;min-height:4px"></div><div style="font-size:9px;color:var(--text3)">${MESES[parseInt(m)]}</div></div>`).join('')}</div>`;
   // Cheques pendientes — ordenados por fecha de vencimiento
   const hoy=today();
-  const cheques=registros.filter(r=>r.metodo==='cheque'&&r.estado==='Pendiente');
+  const cheques=registros.filter(r=>(r.metodo==='cheque'||r.forma==='Cheque')&&r.estado==='Pendiente');
   cheques.sort((a,b)=>(a.chequeVenc||a.fecha||'').localeCompare(b.chequeVenc||b.fecha||''));
   const banner=document.getElementById('cheque-banner');
   if(cheques.length){
@@ -1911,7 +1956,7 @@ function renderHist(){
             <span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span>
             ${r.cat?`<span style="font-size:11px;color:var(--text3)">${r.cat}</span>`:''}
             ${r.zafra?`<span class="badge b-teal">Zafra ${r.zafra}</span>`:''}
-            <span class="badge ${r.metodo==='cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.metodo||'—'}</span>
+            <span class="badge b-per" style="font-size:9px">${r.metodo||'—'}</span>${r.forma?`<span class="badge ${r.forma==='Cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.forma}</span>`:''}
             ${r.chequeVenc?`<span style="font-size:10px;color:var(--amber)">Vence ${r.chequeVenc}</span>`:''}
             <div style="margin-left:auto;display:flex;gap:6px">${acciones}</div>
           </div>
@@ -1919,9 +1964,10 @@ function renderHist(){
         </div>`;
       }).join('');
   } else {
-    el.innerHTML=`<div class="tbl-wrap"><table><tr><th>Fecha</th><th>Detalle</th><th>Unidad</th><th>Cat.</th><th>Zafra</th><th>Método</th><th>Resp.</th><th>Estado</th><th style="text-align:right">Monto</th><th></th></tr>${data.map(r=>`<tr><td class="mono" style="color:var(--text3);white-space:nowrap">${r.fecha}</td><td class="td-det">${r.detalle}</td><td><span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span></td><td style="color:var(--text3);font-size:11px" class="td-det">${r.cat||'—'}</td><td style="color:var(--text3);font-size:11px">${r.zafra||'—'}</td><td><span class="badge ${r.metodo==='cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.metodo||'—'}</span></td><td style="font-size:11px;white-space:nowrap">${r.resp}</td><td><span class="badge ${r.estado==='Pagado'||r.estado==='Cobrado'?'b-pag':'b-pend'}">${r.estado}</span></td><td style="text-align:right;white-space:nowrap" class="mono"><span style="color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">${r.tipo==='ingreso'?'+':'-'}${fmt(r.monto)}</span></td><td style="white-space:nowrap">${r._esMaquinaria?`<a href="${MAQ_URL}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;border:1px solid var(--teal-bg);padding:3px 7px;border-radius:var(--radius-xs)">⚙ maq.</a>`:`<button class="btn-edit" onclick="editarMov('${r.key}')">✎</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button>`}</td></tr>`).join('')}</table></div>`;
+    el.innerHTML=`<div class="tbl-wrap"><table><tr><th>Fecha</th><th>Detalle</th><th>Unidad</th><th>Cat.</th><th>Zafra</th><th>Método</th><th>Resp.</th><th>Estado</th><th style="text-align:right">Monto</th><th></th></tr>${data.map(r=>`<tr><td class="mono" style="color:var(--text3);white-space:nowrap">${r.fecha}</td><td class="td-det">${r.detalle}</td><td><span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span></td><td style="color:var(--text3);font-size:11px" class="td-det">${r.cat||'—'}</td><td style="color:var(--text3);font-size:11px">${r.zafra||'—'}</td><td><span class="badge b-per" style="font-size:9px">${r.metodo||'—'}</span>${r.forma?` <span class="badge ${r.forma==='Cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.forma}</span>`:''}</td><td style="font-size:11px;white-space:nowrap">${r.resp}</td><td><span class="badge ${r.estado==='Pagado'||r.estado==='Cobrado'?'b-pag':'b-pend'}">${r.estado}</span></td><td style="text-align:right;white-space:nowrap" class="mono"><span style="color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">${r.tipo==='ingreso'?'+':'-'}${fmt(r.monto)}</span></td><td style="white-space:nowrap">${r._esMaquinaria?`<a href="${MAQ_URL}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;border:1px solid var(--teal-bg);padding:3px 7px;border-radius:var(--radius-xs)">⚙ maq.</a>`:`<button class="btn-edit" onclick="editarMov('${r.key}')">✎</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button>`}</td></tr>`).join('')}</table></div>`;
   }
 }
+window.renderHist = renderHist;
 
 function renderRemitos(){
   const fEstado=document.getElementById('cos-filtro-estado').value;
@@ -2681,6 +2727,7 @@ window.guardarFijo=async()=>{
   const monto=parseFloat(document.getElementById('rec-monto').value)||0;
   const dia=parseInt(document.getElementById('rec-dia').value)||0;
   const metodo=document.getElementById('rec-metodo').value;
+  const forma=document.getElementById('rec-forma').value;
   const resp=document.getElementById('rec-resp').value;
   const unidad=document.getElementById('rec-unidad').value;
   const catSel=document.getElementById('rec-cat').value;
@@ -2694,7 +2741,7 @@ window.guardarFijo=async()=>{
     return;
   }
   try{
-    await push(fijosRef,{detalle,monto,dia,metodo,resp,unidad,cat,subdet,desde,hasta,activo:true,ts:serverTimestamp()});
+    await push(fijosRef,{detalle,monto,dia,metodo,forma,resp,unidad,cat,subdet,desde,hasta,activo:true,ts:serverTimestamp()});
     showAlert('alert-rec','✓ Gasto fijo guardado','ok');
     limpiarFijo();
   }catch(e){
@@ -2706,6 +2753,7 @@ window.limpiarFijo=()=>{
   ['rec-detalle','rec-monto','rec-dia','rec-desde','rec-hasta','rec-cat-libre','rec-subdet-libre'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('rec-cat').selectedIndex=0;
   document.getElementById('rec-subdet').selectedIndex=0;
+  document.getElementById('rec-forma').selectedIndex=0;
   document.getElementById('rec-cat-libre').style.display='none';
   document.getElementById('rec-subdet-libre').style.display='none';
 };
@@ -2725,6 +2773,7 @@ window.guardarCuota=async()=>{
   const pagadas=parseInt(document.getElementById('cu-pagadas').value)||0;
   const proxima=document.getElementById('cu-proxima').value;
   const metodo=document.getElementById('cu-metodo').value;
+  const forma=document.getElementById('cu-forma').value;
   const resp=document.getElementById('cu-resp').value;
   const unidad=document.getElementById('cu-unidad').value;
   const catSel=document.getElementById('cu-cat').value;
@@ -2740,7 +2789,7 @@ window.guardarCuota=async()=>{
     return;
   }
   try{
-    await push(cuotasRef,{detalle,monto,total,pagadas,proxima,metodo,resp,unidad,cat,subdet,activo:true,ts:serverTimestamp()});
+    await push(cuotasRef,{detalle,monto,total,pagadas,proxima,metodo,forma,resp,unidad,cat,subdet,activo:true,ts:serverTimestamp()});
     showAlert('alert-cuota','✓ Compra en cuotas guardada','ok');
     limpiarCuota();
   }catch(e){
@@ -2753,6 +2802,7 @@ window.limpiarCuota=()=>{
   document.getElementById('cu-pagadas').value='0';
   document.getElementById('cu-cat').selectedIndex=0;
   document.getElementById('cu-subdet').selectedIndex=0;
+  document.getElementById('cu-forma').selectedIndex=0;
   document.getElementById('cu-cat-libre').style.display='none';
   document.getElementById('cu-subdet-libre').style.display='none';
 };
@@ -2783,7 +2833,7 @@ async function generarRecurrentes(){
       if(!yaExiste){
         await push(movRef,{
           tipo:'gasto',fecha:fechaStr,detalle:f.detalle,resp:f.resp,unidad:f.unidad,
-          cat:f.cat||'',subdet:f.subdet||'',zafra:'',monto:f.monto,metodo:f.metodo,estado:'Pagado',
+          cat:f.cat||'',subdet:f.subdet||'',zafra:'',monto:f.monto,metodo:f.metodo,forma:f.forma||'',estado:'Pagado',
           prov:'',obs:`🔁 Gasto fijo mensual`,chequeVenc:'',
           fijoKey:f.key,ts:serverTimestamp()
         });
@@ -2806,7 +2856,7 @@ async function generarRecurrentes(){
         await push(movRef,{
           tipo:'gasto',fecha:proxima,detalle:`${c.detalle} · cuota ${cuotaNum}/${totalCuotas}`,
           resp:c.resp,unidad:c.unidad,cat:c.cat||'',subdet:c.subdet||'',zafra:'',
-          monto:c.monto,metodo:c.metodo,estado:'Pagado',
+          monto:c.monto,metodo:c.metodo,forma:c.forma||'',estado:'Pagado',
           prov:'',obs:`📅 Cuota ${cuotaNum} de ${totalCuotas}`,chequeVenc:'',
           cuotaKey:c.key,cuotaNum,ts:serverTimestamp()
         });
@@ -2920,7 +2970,7 @@ function calcularRecordatoriosUrgentes(){
   const urgentes=[];
 
   // Cheques que vencen en ≤3 días o ya vencidos
-  registros.filter(r=>r.metodo==='cheque'&&r.estado==='Pendiente'&&r.chequeVenc).forEach(r=>{
+  registros.filter(r=>(r.metodo==='cheque'||r.forma==='Cheque')&&r.estado==='Pendiente'&&r.chequeVenc).forEach(r=>{
     const dias=Math.ceil((new Date(r.chequeVenc)-hoyDate)/(1000*60*60*24));
     if(dias<=3) urgentes.push({tipo:'cheque',texto:`Cheque "${r.detalle}" ${dias<0?'VENCIDO hace '+Math.abs(dias)+'d':dias===0?'vence HOY':'vence en '+dias+'d'} · ${fmt(r.monto)}`,dias});
   });
