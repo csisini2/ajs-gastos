@@ -228,6 +228,7 @@ tr:hover td{background:var(--bg3)}
   <button class="nav-btn" onclick="showTab('reporte',this)">Reporte</button>
   <button class="nav-btn" onclick="showTab('analisis',this)">📊 Análisis</button>
   <button class="nav-btn" onclick="showTab('zafra',this)">🌾 Zafra</button>
+  <button class="nav-btn" onclick="showTab('stock',this)">📦 Stock azúcar</button>
   <button class="nav-btn" onclick="showTab('unidades',this)">Por unidad</button>
 </div>
 
@@ -410,7 +411,11 @@ tr:hover td{background:var(--bg3)}
       </div>
       <div class="field" id="icat-field" style="display:none">
         <label>Categoría ingreso</label>
-        <select id="n-icat"><option value="">— opcional —</option><option>Venta de azúcar</option><option>Liquidación ingenio</option><option>Venta de caña</option><option>Alquiler cochera</option><option>Alquiler propiedad</option><option>Venta caballo</option><option>Servicios / trabajos</option><option>Subsidio / ayuda</option><option>Otro ingreso</option></select>
+        <select id="n-icat" onchange="document.getElementById('bolsas-field').style.display=this.value==='Venta de azúcar'?'':'none'"><option value="">— opcional —</option><option>Venta de azúcar</option><option>Liquidación ingenio</option><option>Venta de caña</option><option>Alquiler cochera</option><option>Alquiler propiedad</option><option>Venta caballo</option><option>Servicios / trabajos</option><option>Subsidio / ayuda</option><option>Otro ingreso</option></select>
+      </div>
+      <div class="field" id="bolsas-field" style="display:none">
+        <label>Cantidad de bolsas vendidas (50kg c/u)</label>
+        <input type="number" id="n-bolsas" placeholder="ej: 100" min="0">
       </div>
       <div class="field" id="subdet-field">
         <label>Subcategoría</label>
@@ -808,6 +813,102 @@ tr:hover td{background:var(--bg3)}
     <div id="zafra-content"></div>
   </div>
 </div>
+
+<div id="panel-stock" class="panel">
+  <!-- RESUMEN DE STOCK -->
+  <div class="card">
+    <div class="card-title">📦 Stock de azúcar</div>
+    <div id="stock-resumen"></div>
+  </div>
+
+  <!-- LIQUIDACIÓN DEL INGENIO -->
+  <div class="card">
+    <div id="alert-liqaz"></div>
+    <div class="card-title">🏭 Bolsas liquidadas por el ingenio</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Cuántas bolsas te liquidó el ingenio. Es el techo de lo que podés retirar.</div>
+    <div class="form-grid">
+      <div class="field"><label>Zafra</label>
+        <select id="liqaz-zafra"><option>2024</option><option>2025</option><option selected>2026</option></select>
+      </div>
+      <div class="field"><label>Línea</label>
+        <select id="liqaz-linea"><option value="B1">Línea 1 (B1)</option><option value="B2">Línea 2 (B2)</option></select>
+      </div>
+      <div class="field"><label>Cantidad de bolsas</label><input type="number" id="liqaz-bolsas" placeholder="0"></div>
+    </div>
+    <div class="row-btns">
+      <button class="btn btn-primary" onclick="guardarLiqAzucar()">Guardar liquidación</button>
+    </div>
+    <div id="liqaz-list" style="margin-top:12px"></div>
+  </div>
+
+  <!-- RETIROS DEL INGENIO -->
+  <div class="card">
+    <div id="alert-retiro"></div>
+    <div class="card-title">🚚 Retiro de azúcar del ingenio</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Cada tanda de bolsas que retirás del ingenio. Las marcadas "retirada = SÍ" entran al stock.</div>
+    <div class="form-grid">
+      <div class="field"><label>Ingenio</label><input type="text" id="ret-ingenio" value="INGENIO LA CORONA"></div>
+      <div class="field"><label>Línea</label>
+        <select id="ret-linea" onchange="document.getElementById('ret-orden-field').style.display=this.value==='1'?'':'none';document.getElementById('ret-foto-field').style.display=this.value==='1'?'':'none'">
+          <option value="1">Línea 1</option><option value="2">Línea 2</option>
+        </select>
+      </div>
+      <div class="field" id="ret-orden-field"><label>N° de orden</label><input type="text" id="ret-orden" placeholder="ej: 1000128384"></div>
+      <div class="field"><label>Cantidad de bolsas</label><input type="number" id="ret-cantidad" placeholder="ej: 600"></div>
+      <div class="field"><label>¿Retirada?</label>
+        <select id="ret-retirada"><option value="SI">SÍ — ya retirada</option><option value="NO">NO — pendiente</option></select>
+      </div>
+      <div class="field"><label>Recibió</label><input type="text" id="ret-recibio" placeholder="ej: SAN VICENTE"></div>
+      <div class="field"><label>Fecha a retirar</label><input type="date" id="ret-fecha-a"></div>
+      <div class="field"><label>Fecha de retiro</label><input type="date" id="ret-fecha-r"></div>
+      <div class="field f-wide" id="ret-foto-field"><label>Foto de la orden (Línea 1)</label><input type="file" id="ret-foto" accept="image/*"></div>
+      <div class="field f-wide"><label>Observaciones</label><input type="text" id="ret-obs" placeholder="Notas del retiro"></div>
+    </div>
+    <div class="row-btns">
+      <button class="btn btn-primary" onclick="guardarRetiro()">Guardar retiro</button>
+      <button class="btn btn-ghost" onclick="limpiarRetiro()">Limpiar</button>
+    </div>
+  </div>
+
+  <!-- LISTA DE RETIROS -->
+  <div class="card">
+    <div class="card-title">Historial de retiros</div>
+    <div id="retiros-list"></div>
+  </div>
+
+  <!-- DESCUENTOS DE BOLSAS -->
+  <div class="card">
+    <div id="alert-descbol"></div>
+    <div class="card-title">➖ Descuento de bolsas</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Bolsas entregadas como pago a alguien que te vendió caña. Salen del stock pero no son venta.</div>
+    <div class="form-grid">
+      <div class="field"><label>Cantidad de bolsas</label><input type="number" id="descbol-cantidad" placeholder="ej: 204"></div>
+      <div class="field"><label>A quién</label><input type="text" id="descbol-aquien" placeholder="ej: BRAGUE"></div>
+      <div class="field"><label>Fecha</label><input type="date" id="descbol-fecha"></div>
+      <div class="field f-wide"><label>Observaciones</label><input type="text" id="descbol-obs" placeholder="Motivo del descuento"></div>
+    </div>
+    <div class="row-btns">
+      <button class="btn btn-primary" onclick="guardarDescBolsas()">Guardar descuento</button>
+    </div>
+    <div id="descbol-list" style="margin-top:12px"></div>
+  </div>
+
+  <!-- STOCK FUTURO -->
+  <div class="card">
+    <div id="alert-futuro"></div>
+    <div class="card-title">🔮 Stock futuro estimado</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Bolsas que estimás recibir después de la próxima cosecha. Solo informativo, no afecta el stock actual.</div>
+    <div class="form-grid">
+      <div class="field"><label>Descripción</label><input type="text" id="futuro-desc" placeholder="ej: Estimado zafra 2027"></div>
+      <div class="field"><label>Bolsas estimadas</label><input type="number" id="futuro-bolsas" placeholder="0"></div>
+    </div>
+    <div class="row-btns">
+      <button class="btn btn-primary" onclick="guardarFuturo()">Guardar estimación</button>
+    </div>
+    <div id="futuro-list" style="margin-top:12px"></div>
+  </div>
+</div>
+
 
 <div id="panel-bolsillos" class="panel">
   <div class="card">
@@ -1242,7 +1343,7 @@ onAuthStateChanged(auth, user => {
           syncLbl.textContent=`en línea · ${registros.length} registros`;
           if(typeof updateBalance==='function') updateBalance();
           const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-          const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra};
+          const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock};
           if(fn[id]) fn[id]();
         }).catch(e=>console.warn('Error recargando movRef:',e));
       }
@@ -1276,11 +1377,16 @@ const tarjetasRef = ref(db,'tarjetas');
 const notasRef = ref(db,'notas');
 const fijosRef = ref(db,'fijos');
 const cuotasRef = ref(db,'cuotas');
+const liqAzucarRef = ref(db,'liqAzucar');
+const retirosRef = ref(db,'retiros');
+const descBolsasRef = ref(db,'descBolsas');
+const futuroRef = ref(db,'stockFuturo');
 
 // STATE
 let registros=[], remitos=[], liquidaciones=[], empleados=[], caballos=[], insumos=[], adelantos=[];
 let maqGasoil=[], maqMant=[];
 let tarjetas={}, notas=[], fijos=[], cuotas=[];
+let liqAzucar=[], retiros=[], descBolsas=[], stockFuturo=[];
 let histFiltro='todos', tipoActual='gasto', editKey=null, kilosKey=null, vistaHist='cards', notasFiltro='activas';
 
 // HELPERS
@@ -1386,7 +1492,7 @@ window.showTab = (t,el) => {
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+t).classList.add('active');
   if(el) el.classList.add('active');
-  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,cosecha:renderRemitos,liquidaciones:renderLiquidaciones,empleados:renderEmpleados,caballos:renderCaballos,insumos:renderInsumos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra};
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,cosecha:renderRemitos,liquidaciones:renderLiquidaciones,empleados:renderEmpleados,caballos:renderCaballos,insumos:renderInsumos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock};
   if(fn[t]) fn[t]();
 };
 
@@ -1460,6 +1566,8 @@ window.limpiar = () => {
   document.getElementById('zafra-row').style.display='none';
   document.getElementById('n-cheque-venc').value='';
   document.getElementById('cheque-venc-field').style.display='none';
+  document.getElementById('n-bolsas').value='';
+  document.getElementById('bolsas-field').style.display='none';
 };
 
 function showAlert(id,msg,type='ok'){
@@ -1506,6 +1614,7 @@ window.guardar = async () => {
     prov:document.getElementById('n-prov').value,
     obs:document.getElementById('n-obs').value,
     chequeVenc:forma==='Cheque'?document.getElementById('n-cheque-venc').value:'',
+    bolsas:(tipoActual==='ingreso'&&document.getElementById('n-icat').value==='Venta de azúcar')?(parseInt(document.getElementById('n-bolsas').value)||0):'',
     ts:serverTimestamp()
   };
   const btn=document.getElementById('btn-guardar');
@@ -1526,7 +1635,7 @@ window.guardar = async () => {
     syncLbl.textContent=`en línea · ${registros.length} registros`;
     updateBalance();
     const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-    const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra};
+    const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock};
     if(fn[id]) fn[id]();
     showAlert('alert-nuevo','✓ Guardado correctamente','ok');
     limpiar();
@@ -2652,7 +2761,7 @@ get(movRef).then(snap=>{
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra};
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock};
   if(fn[id]) fn[id]();
 }).catch(()=>{/* sin auth todavía, se reintentará cuando el usuario haga login */});
 
@@ -2669,7 +2778,7 @@ onValue(movRef,snap=>{
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra};
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock};
   if(fn[id]) fn[id]();
 },(err)=>{
   syncDot.style.background='var(--red)';
@@ -3390,6 +3499,252 @@ onValue(cuotasRef,snap=>{
   snap.forEach(c=>{ cuotas.push({...c.val(),key:c.key}); });
   if(document.getElementById('panel-recurrentes').classList.contains('active')) renderCuotas();
   generarRecurrentes();
+});
+
+
+// ═══════════════════════════════════════════════════════════════
+// STOCK DE AZÚCAR
+// ═══════════════════════════════════════════════════════════════
+
+// Calcula el estado completo del stock
+function calcularStockAzucar(){
+  // Total liquidado por el ingenio (todas las zafras, stock acumulado)
+  const totalLiquidado=liqAzucar.reduce((a,l)=>a+(l.bolsas||0),0);
+  // Bolsas retiradas del ingenio (solo las marcadas "retirada = SI")
+  const totalRetirado=retiros.filter(r=>r.retirada==='SI').reduce((a,r)=>a+(r.cantidad||0),0);
+  // Bolsas pendientes de retirar (retirada = NO)
+  const pendienteRetiro=retiros.filter(r=>r.retirada==='NO').reduce((a,r)=>a+(r.cantidad||0),0);
+  // Bolsas vendidas (ingresos categoría "Venta de azúcar" con campo bolsas)
+  const totalVendido=getAllMovimientos()
+    .filter(r=>r.tipo==='ingreso'&&r.cat==='Venta de azúcar'&&r.bolsas)
+    .reduce((a,r)=>a+(parseInt(r.bolsas)||0),0);
+  // Descuentos de bolsas (pagos en azúcar)
+  const totalDescuentos=descBolsas.reduce((a,d)=>a+(d.cantidad||0),0);
+  // Stock disponible
+  const stockDisponible=totalRetirado-totalVendido-totalDescuentos;
+  // Por retirar del ingenio = liquidado - retirado
+  const porRetirar=totalLiquidado-totalRetirado;
+  // Stock futuro estimado
+  const totalFuturo=stockFuturo.reduce((a,f)=>a+(f.bolsas||0),0);
+  return{totalLiquidado,totalRetirado,pendienteRetiro,totalVendido,totalDescuentos,stockDisponible,porRetirar,totalFuturo};
+}
+
+function renderStockResumen(){
+  const s=calcularStockAzucar();
+  const cont=document.getElementById('stock-resumen');
+  const kg=n=>`${(n*50).toLocaleString('es-AR')} kg`;
+  cont.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="background:var(--bg2);padding:14px;border-radius:var(--radius-xs);border-left:3px solid var(--green)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Stock disponible</div>
+        <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:${s.stockDisponible>=0?'var(--green)':'var(--red)'}">${s.stockDisponible} bolsas</div>
+        <div style="font-size:10px;color:var(--text3)">${kg(s.stockDisponible)} · listas para vender</div>
+      </div>
+      <div style="background:var(--bg2);padding:14px;border-radius:var(--radius-xs);border-left:3px solid var(--amber)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Por retirar del ingenio</div>
+        <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--amber)">${s.porRetirar} bolsas</div>
+        <div style="font-size:10px;color:var(--text3)">${kg(s.porRetirar)} · todavía en el ingenio</div>
+      </div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+      <div style="font-size:13px;font-weight:500;margin-bottom:10px">Detalle del movimiento de bolsas</div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span>Liquidado por el ingenio</span><span style="font-family:'DM Mono',monospace">${s.totalLiquidado}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span>Retirado del ingenio</span><span style="font-family:'DM Mono',monospace;color:var(--green)">+${s.totalRetirado}</span>
+      </div>
+      ${s.pendienteRetiro>0?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text3)">
+        <span>· pendiente de retirar</span><span style="font-family:'DM Mono',monospace">${s.pendienteRetiro}</span>
+      </div>`:''}
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span>Vendido</span><span style="font-family:'DM Mono',monospace;color:var(--red)">−${s.totalVendido}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span>Descuentos (pagos en azúcar)</span><span style="font-family:'DM Mono',monospace;color:var(--red)">−${s.totalDescuentos}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-size:14px;font-weight:500">
+        <span>Stock disponible</span><span style="font-family:'DM Mono',monospace;color:${s.stockDisponible>=0?'var(--green)':'var(--red)'}">${s.stockDisponible} bolsas</span>
+      </div>
+      ${s.totalFuturo>0?`<div style="display:flex;justify-content:space-between;padding:8px 0 0;font-size:12px;color:var(--text3);border-top:1px solid var(--border);margin-top:8px">
+        <span>🔮 Stock futuro estimado</span><span style="font-family:'DM Mono',monospace">+${s.totalFuturo} bolsas</span>
+      </div>`:''}
+    </div>`;
+}
+
+// ── LIQUIDACIÓN DE AZÚCAR ───────────────────────────────────────
+window.guardarLiqAzucar=async()=>{
+  const zafra=document.getElementById('liqaz-zafra').value;
+  const linea=document.getElementById('liqaz-linea').value;
+  const bolsas=parseInt(document.getElementById('liqaz-bolsas').value)||0;
+  if(!bolsas){ showAlert('alert-liqaz','Ingresá la cantidad de bolsas','err'); return; }
+  try{
+    await push(liqAzucarRef,{zafra,linea,bolsas,fecha:today(),ts:serverTimestamp()});
+    showAlert('alert-liqaz','✓ Liquidación guardada','ok');
+    document.getElementById('liqaz-bolsas').value='';
+  }catch(e){ showAlert('alert-liqaz','Error al guardar','err'); }
+};
+window.eliminarLiqAzucar=key=>{ confirmDelete(async()=>{ await remove(ref(db,'liqAzucar/'+key)); }); };
+
+function renderLiqAzucarList(){
+  const cont=document.getElementById('liqaz-list');
+  if(!liqAzucar.length){ cont.innerHTML='<div style="font-size:12px;color:var(--text3)">Sin liquidaciones cargadas</div>'; return; }
+  const data=liqAzucar.slice().sort((a,b)=>(b.zafra||'').localeCompare(a.zafra||''));
+  cont.innerHTML=data.map(l=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg2);border-radius:var(--radius-xs);margin-bottom:6px;font-size:13px">
+    <span>Zafra ${l.zafra} · <strong>${l.linea}</strong></span>
+    <span style="display:flex;align-items:center;gap:8px"><span style="font-family:'DM Mono',monospace">${l.bolsas} bolsas</span><button class="btn-del btn-sm" onclick="eliminarLiqAzucar('${l.key}')">✕</button></span>
+  </div>`).join('');
+}
+
+// ── RETIROS ─────────────────────────────────────────────────────
+window.guardarRetiro=async()=>{
+  const linea=document.getElementById('ret-linea').value;
+  const cantidad=parseInt(document.getElementById('ret-cantidad').value)||0;
+  if(!cantidad){ showAlert('alert-retiro','Ingresá la cantidad de bolsas','err'); return; }
+  let fotoUrl='';
+  const fotoInput=document.getElementById('ret-foto');
+  if(linea==='1'&&fotoInput.files[0]){
+    try{
+      fotoUrl=await new Promise(res=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(fotoInput.files[0]); });
+    }catch(e){}
+  }
+  const rec={
+    ingenio:document.getElementById('ret-ingenio').value.trim(),
+    linea,
+    orden:linea==='1'?document.getElementById('ret-orden').value.trim():'',
+    cantidad,
+    retirada:document.getElementById('ret-retirada').value,
+    recibio:document.getElementById('ret-recibio').value.trim(),
+    fechaA:document.getElementById('ret-fecha-a').value,
+    fechaR:document.getElementById('ret-fecha-r').value,
+    obs:document.getElementById('ret-obs').value.trim(),
+    fotoUrl,
+    ts:serverTimestamp()
+  };
+  try{
+    await push(retirosRef,rec);
+    showAlert('alert-retiro','✓ Retiro guardado','ok');
+    limpiarRetiro();
+  }catch(e){ showAlert('alert-retiro','Error al guardar','err'); }
+};
+
+window.limpiarRetiro=()=>{
+  ['ret-orden','ret-cantidad','ret-recibio','ret-fecha-a','ret-fecha-r','ret-obs'].forEach(id=>document.getElementById(id).value='');
+  const f=document.getElementById('ret-foto'); if(f) f.value='';
+};
+
+window.eliminarRetiro=key=>{ confirmDelete(async()=>{ await remove(ref(db,'retiros/'+key)); }); };
+
+window.toggleRetirada=async(key,nuevoEstado)=>{
+  await set(ref(db,'retiros/'+key+'/retirada'),nuevoEstado);
+};
+
+function renderRetiros(){
+  const cont=document.getElementById('retiros-list');
+  if(!retiros.length){ cont.innerHTML='<div class="empty"><div class="empty-icon">🚚</div>Sin retiros cargados</div>'; return; }
+  const data=retiros.slice().sort((a,b)=>(b.fechaR||b.fechaA||'').localeCompare(a.fechaR||a.fechaA||''));
+  cont.innerHTML=data.map(r=>{
+    const retirada=r.retirada==='SI';
+    return`<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${retirada?'var(--green)':'var(--amber)'};border-radius:var(--radius);padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500">Línea ${r.linea}${r.orden?` · Orden ${r.orden}`:''}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">${r.ingenio||''}${r.recibio?' · Recibió: '+r.recibio:''}</div>
+          <div style="font-size:11px;color:var(--text3)">${r.fechaA?'A retirar: '+r.fechaA:''}${r.fechaR?' · Retirado: '+r.fechaR:''}</div>
+          ${r.obs?`<div style="font-size:11px;color:var(--text3);margin-top:3px">${r.obs}</div>`:''}
+          ${r.fotoUrl?`<a href="${r.fotoUrl}" target="_blank" style="font-size:11px;color:var(--teal);text-decoration:none">📷 Ver foto de la orden</a>`:''}
+        </div>
+        <div style="text-align:right;margin-left:10px">
+          <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:500">${r.cantidad}</div>
+          <div style="font-size:10px;color:var(--text3)">bolsas</div>
+          <span class="badge ${retirada?'b-pag':'b-pend'}" style="margin-top:4px">${retirada?'Retirada':'Pendiente'}</span>
+          <div style="display:flex;gap:4px;margin-top:6px;justify-content:flex-end">
+            <button class="btn-edit btn-sm" onclick="toggleRetirada('${r.key}','${retirada?'NO':'SI'}')" title="${retirada?'Marcar pendiente':'Marcar retirada'}">${retirada?'↩':'✓'}</button>
+            <button class="btn-del btn-sm" onclick="eliminarRetiro('${r.key}')">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── DESCUENTOS DE BOLSAS ────────────────────────────────────────
+window.guardarDescBolsas=async()=>{
+  const cantidad=parseInt(document.getElementById('descbol-cantidad').value)||0;
+  const aQuien=document.getElementById('descbol-aquien').value.trim();
+  if(!cantidad||!aQuien){ showAlert('alert-descbol','Completá cantidad y a quién','err'); return; }
+  try{
+    await push(descBolsasRef,{
+      cantidad,aQuien,
+      fecha:document.getElementById('descbol-fecha').value||today(),
+      obs:document.getElementById('descbol-obs').value.trim(),
+      ts:serverTimestamp()
+    });
+    showAlert('alert-descbol','✓ Descuento guardado','ok');
+    ['descbol-cantidad','descbol-aquien','descbol-fecha','descbol-obs'].forEach(id=>document.getElementById(id).value='');
+  }catch(e){ showAlert('alert-descbol','Error al guardar','err'); }
+};
+window.eliminarDescBolsas=key=>{ confirmDelete(async()=>{ await remove(ref(db,'descBolsas/'+key)); }); };
+
+function renderDescBolsasList(){
+  const cont=document.getElementById('descbol-list');
+  if(!descBolsas.length){ cont.innerHTML='<div style="font-size:12px;color:var(--text3)">Sin descuentos cargados</div>'; return; }
+  const data=descBolsas.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  cont.innerHTML=data.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg2);border-radius:var(--radius-xs);margin-bottom:6px;font-size:13px">
+    <span><strong>${d.cantidad} bolsas</strong> → ${d.aQuien} <span style="color:var(--text3);font-size:11px">· ${d.fecha}${d.obs?' · '+d.obs:''}</span></span>
+    <button class="btn-del btn-sm" onclick="eliminarDescBolsas('${d.key}')">✕</button>
+  </div>`).join('');
+}
+
+// ── STOCK FUTURO ────────────────────────────────────────────────
+window.guardarFuturo=async()=>{
+  const desc=document.getElementById('futuro-desc').value.trim();
+  const bolsas=parseInt(document.getElementById('futuro-bolsas').value)||0;
+  if(!desc||!bolsas){ showAlert('alert-futuro','Completá descripción y cantidad','err'); return; }
+  try{
+    await push(futuroRef,{desc,bolsas,fecha:today(),ts:serverTimestamp()});
+    showAlert('alert-futuro','✓ Estimación guardada','ok');
+    document.getElementById('futuro-desc').value='';
+    document.getElementById('futuro-bolsas').value='';
+  }catch(e){ showAlert('alert-futuro','Error al guardar','err'); }
+};
+window.eliminarFuturo=key=>{ confirmDelete(async()=>{ await remove(ref(db,'stockFuturo/'+key)); }); };
+
+function renderFuturoList(){
+  const cont=document.getElementById('futuro-list');
+  if(!stockFuturo.length){ cont.innerHTML='<div style="font-size:12px;color:var(--text3)">Sin estimaciones cargadas</div>'; return; }
+  const data=stockFuturo.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  cont.innerHTML=data.map(f=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg2);border-radius:var(--radius-xs);margin-bottom:6px;font-size:13px">
+    <span>${f.desc} <span style="color:var(--text3);font-size:11px">· ${f.fecha}</span></span>
+    <span style="display:flex;align-items:center;gap:8px"><span style="font-family:'DM Mono',monospace">${f.bolsas} bolsas</span><button class="btn-del btn-sm" onclick="eliminarFuturo('${f.key}')">✕</button></span>
+  </div>`).join('');
+}
+
+// Render completo del panel de stock
+function renderStock(){
+  renderStockResumen();
+  renderLiqAzucarList();
+  renderRetiros();
+  renderDescBolsasList();
+  renderFuturoList();
+}
+
+// LISTENERS de stock
+onValue(liqAzucarRef,snap=>{
+  liqAzucar=[]; snap.forEach(c=>{ liqAzucar.push({...c.val(),key:c.key}); });
+  if(document.getElementById('panel-stock').classList.contains('active')) renderStock();
+});
+onValue(retirosRef,snap=>{
+  retiros=[]; snap.forEach(c=>{ retiros.push({...c.val(),key:c.key}); });
+  if(document.getElementById('panel-stock').classList.contains('active')) renderStock();
+});
+onValue(descBolsasRef,snap=>{
+  descBolsas=[]; snap.forEach(c=>{ descBolsas.push({...c.val(),key:c.key}); });
+  if(document.getElementById('panel-stock').classList.contains('active')) renderStock();
+});
+onValue(futuroRef,snap=>{
+  stockFuturo=[]; snap.forEach(c=>{ stockFuturo.push({...c.val(),key:c.key}); });
+  if(document.getElementById('panel-stock').classList.contains('active')) renderStock();
 });
 
 
