@@ -315,6 +315,10 @@ tr:hover td{background:var(--bg3)}
   </div>
   <div class="card"><div class="card-title">Gastos mes a mes 2026</div><div id="chart-meses"></div></div>
   <div class="card">
+    <div class="card-header"><div class="card-title" style="margin:0">💰 Proyección a 30 días</div></div>
+    <div id="proyeccion-caja"></div>
+  </div>
+  <div class="card">
     <div class="card-header"><div class="card-title" style="margin:0">Últimos movimientos</div></div>
     <div id="ultimos-mov"></div>
   </div>
@@ -1531,6 +1535,103 @@ window.importarIngenio = input => {
 };
 
 // RENDERS
+function renderProyeccion30(){
+  const cont=document.getElementById('proyeccion-caja');
+  if(!cont) return;
+  const hoy=today();
+  const hoyDate=new Date(hoy);
+  const limite=new Date(hoyDate); limite.setDate(limite.getDate()+30);
+  const limiteStr=limite.toISOString().slice(0,10);
+
+  const eventos=[]; // {fecha, detalle, monto, tipo}
+
+  // 1) Cheques pendientes con fecha de vencimiento en los próximos 30 días
+  registros.filter(r=>r.metodo==='cheque'&&r.estado==='Pendiente'&&r.chequeVenc).forEach(r=>{
+    if(r.chequeVenc>=hoy&&r.chequeVenc<=limiteStr){
+      eventos.push({fecha:r.chequeVenc,detalle:`Cheque: ${r.detalle}`,monto:r.monto,tipo:'cheque'});
+    }
+  });
+
+  // 2) Vencimientos de tarjetas
+  METODOS_TARJETA.forEach(tc=>{
+    const{aPagar,vencActual,vencProximo,proximoResumen}=calcularCicloTarjeta(tc);
+    if(aPagar>0&&vencActual&&vencActual>=hoy&&vencActual<=limiteStr){
+      eventos.push({fecha:vencActual,detalle:`${tc} (resumen actual)`,monto:aPagar,tipo:'tarjeta'});
+    }
+    if(proximoResumen>0&&vencProximo&&vencProximo>=hoy&&vencProximo<=limiteStr){
+      eventos.push({fecha:vencProximo,detalle:`${tc} (próximo resumen)`,monto:proximoResumen,tipo:'tarjeta'});
+    }
+  });
+
+  // 3) Cuotas pendientes con fecha en los próximos 30 días
+  cuotas.filter(c=>c.activo).forEach(c=>{
+    let prox=c.proxima;
+    let cuotaNum=(c.pagadas||0)+1;
+    while(prox<=limiteStr&&cuotaNum<=c.total){
+      if(prox>=hoy){
+        eventos.push({fecha:prox,detalle:`${c.detalle} cuota ${cuotaNum}/${c.total}`,monto:c.monto,tipo:'cuota'});
+      }
+      const d=new Date(prox); d.setMonth(d.getMonth()+1);
+      prox=d.toISOString().slice(0,10);
+      cuotaNum++;
+    }
+  });
+
+  // 4) Gastos fijos mensuales que caen en los próximos 30 días
+  fijos.filter(f=>f.activo).forEach(f=>{
+    let cursor=new Date(hoyDate.getFullYear(),hoyDate.getMonth(),f.dia);
+    if(cursor<hoyDate) cursor=new Date(hoyDate.getFullYear(),hoyDate.getMonth()+1,f.dia);
+    while(cursor<=limite){
+      const fechaStr=cursor.toISOString().slice(0,10);
+      if(f.hasta&&fechaStr>f.hasta) break;
+      const yaPagado=registros.some(r=>r.fijoKey===f.key&&r.fecha===fechaStr);
+      if(!yaPagado){
+        eventos.push({fecha:fechaStr,detalle:`🔁 ${f.detalle}`,monto:f.monto,tipo:'fijo'});
+      }
+      cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,f.dia);
+    }
+  });
+
+  eventos.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
+  const totalPagar=eventos.reduce((a,e)=>a+e.monto,0);
+  const disponible=totalDisponible();
+  const proyectado=disponible-totalPagar;
+
+  const colorIcon={cheque:'var(--amber)',tarjeta:'var(--red)',cuota:'var(--amber)',fijo:'var(--teal)'};
+  const iconText={cheque:'📝',tarjeta:'💳',cuota:'📅',fijo:'🔁'};
+
+  cont.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="background:var(--bg2);padding:10px;border-radius:var(--radius-xs);border-left:3px solid var(--green)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Disponible hoy</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--green)">${fmt(disponible)}</div>
+      </div>
+      <div style="background:var(--bg2);padding:10px;border-radius:var(--radius-xs);border-left:3px solid var(--red)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Pagos en 30 días</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--red)">−${fmt(totalPagar)}</div>
+      </div>
+      <div style="background:var(--bg2);padding:10px;border-radius:var(--radius-xs);border-left:3px solid ${proyectado>=0?'var(--green)':'var(--red)'}">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Proyectado</div>
+        <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:${proyectado>=0?'var(--green)':'var(--red)'}">${proyectado<0?'−':''}${fmt(Math.abs(proyectado))}</div>
+      </div>
+    </div>
+    ${eventos.length?`<div style="max-height:280px;overflow-y:auto">
+      ${eventos.map(e=>{
+        const dias=Math.ceil((new Date(e.fecha)-hoyDate)/(1000*60*60*24));
+        return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid var(--border);font-size:13px">
+          <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+            <span style="color:${colorIcon[e.tipo]||'var(--text3)'}">${iconText[e.tipo]||'•'}</span>
+            <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.detalle}</div>
+            <span style="font-size:10px;color:var(--text3);white-space:nowrap">${e.fecha} (${dias===0?'hoy':dias===1?'mañana':'en '+dias+'d'})</span>
+          </div>
+          <div style="font-family:'DM Mono',monospace;color:var(--red);margin-left:10px;white-space:nowrap">−${fmt(e.monto)}</div>
+        </div>`;
+      }).join('')}
+    </div>`:'<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Sin pagos programados en los próximos 30 días</div>'}
+  `;
+}
+
 function renderDash(){
   const all=getAllMovimientos();
   const gastos=all.filter(r=>r.tipo==='gasto');
@@ -1625,6 +1726,9 @@ function renderDash(){
       return`<div class="alert-banner-item"><strong>${n.titulo}</strong>${asoc?` · ${asoc}`:''}${n.contenido?` · <span style="color:var(--text3)">${n.contenido.slice(0,80)}${n.contenido.length>80?'...':''}</span>`:''}</div>`;
     }).join('');
   } else notasBanner.classList.remove('show');
+
+  // Proyección a 30 días
+  renderProyeccion30();
 
   // Últimos
   const ultimos=all.slice(0,8);
@@ -2572,6 +2676,71 @@ document.getElementById('ad-fecha').value=today();
 
 // backup automático: una sola vez, 10 segundos después de cargar la app
 setTimeout(()=>hacerBackupSiCorresponde(),10000);
+
+// ═══════════════════════════════════════════════════════════════
+// RECORDATORIOS — banner urgente + notificación si tiene permiso
+// ═══════════════════════════════════════════════════════════════
+
+function calcularRecordatoriosUrgentes(){
+  const hoy=today();
+  const hoyDate=new Date(hoy);
+  const urgentes=[];
+
+  // Cheques que vencen en ≤3 días o ya vencidos
+  registros.filter(r=>r.metodo==='cheque'&&r.estado==='Pendiente'&&r.chequeVenc).forEach(r=>{
+    const dias=Math.ceil((new Date(r.chequeVenc)-hoyDate)/(1000*60*60*24));
+    if(dias<=3) urgentes.push({tipo:'cheque',texto:`Cheque "${r.detalle}" ${dias<0?'VENCIDO hace '+Math.abs(dias)+'d':dias===0?'vence HOY':'vence en '+dias+'d'} · ${fmt(r.monto)}`,dias});
+  });
+
+  // Tarjetas que vencen en ≤3 días o vencidas
+  METODOS_TARJETA.forEach(tc=>{
+    const{aPagar,vencActual,diasParaVenc}=calcularCicloTarjeta(tc);
+    if(aPagar>0&&diasParaVenc!==null&&diasParaVenc<=3){
+      urgentes.push({tipo:'tarjeta',texto:`${tc} ${diasParaVenc<0?'VENCIDA hace '+Math.abs(diasParaVenc)+'d':diasParaVenc===0?'vence HOY':'vence en '+diasParaVenc+'d'} · ${fmt(aPagar)}`,dias:diasParaVenc});
+    }
+  });
+
+  urgentes.sort((a,b)=>a.dias-b.dias);
+  return urgentes;
+}
+
+async function mostrarRecordatorios(){
+  const urgentes=calcularRecordatoriosUrgentes();
+  if(!urgentes.length) return;
+
+  // Notificación del navegador (si tiene permiso)
+  if('Notification' in window && Notification.permission==='granted'){
+    const hoy=today();
+    const ultimaNotif=localStorage.getItem('ajs_ultima_notif');
+    // solo notificar una vez por día
+    if(ultimaNotif!==hoy){
+      const msg=urgentes.length===1?urgentes[0].texto:`${urgentes.length} pagos urgentes próximos`;
+      try{
+        new Notification('AJS — Recordatorio',{body:msg,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%230f0f0f"/><text x="50" y="70" font-size="60" text-anchor="middle" font-family="monospace" fill="%23f0ede8">A</text></svg>'});
+        localStorage.setItem('ajs_ultima_notif',hoy);
+      }catch(e){}
+    }
+  }
+}
+
+// Pedir permiso de notificaciones al loguear (solo una vez)
+async function pedirPermisoNotificaciones(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission==='default'){
+    // pedirlo después de 3 segundos para no molestar al cargar
+    setTimeout(async()=>{
+      try{ await Notification.requestPermission(); }catch(e){}
+    },3000);
+  }
+}
+
+// Ejecutar recordatorios 5 segundos después de cargar (para que los listeners terminen)
+setTimeout(()=>{
+  if(usuarioActual){
+    mostrarRecordatorios();
+    pedirPermisoNotificaciones();
+  }
+},5000);
 
 // desregistrar service worker viejo si existe (estaba dando error de MIME)
 if('serviceWorker' in navigator){
