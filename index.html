@@ -257,6 +257,33 @@ tr:hover td{background:var(--bg3)}
     </div>
     <div class="field"><label>Detalle</label><input type="text" id="edit-detalle"></div>
     <div class="fg">
+      <div class="field"><label>Categoría</label>
+        <select id="edit-cat" onchange="onCatEditChange()">
+          <option value="">— opcional —</option>
+          <optgroup label="Campo"><option>Campo/combustible</option><option>Campo/menus</option><option>Campo/bar</option><option>Campo/Viaticos</option><option>Campo/des.mer</option><option>Campo/repuestos</option><option>Campo/cosecha</option><option>Campo/arreglos herramientas</option><option>Campo/Plantada</option></optgroup>
+          <optgroup label="Sueldos"><option>Campo/Sueldo</option><option>AJS/Sueldo</option></optgroup>
+          <optgroup label="Adelantos"><option>Campo/Adelanto</option><option>AJS/Adelanto</option></optgroup>
+          <optgroup label="AJS / Caballos"><option>AJS</option><option>AJS ALIMENTO</option><option>AJS ALFA</option><option>AJS SAN VICENTE</option></optgroup>
+          <optgroup label="Cuentas"><option>Cuenta Galicia</option><option>Cuenta Macro</option><option>LI</option></optgroup>
+          <optgroup label="Otros"><option>Casa</option><option>Lavanderia</option><option>Herramientas</option><option>Insumos</option><option>Flete</option><option>Alberdi</option><option>mantenimiento</option><option>Pago tarjeta</option><option>Otros</option></optgroup>
+          <option value="__otro__">✎ Otro (escribir)...</option>
+        </select>
+        <input type="text" id="edit-cat-libre" placeholder="Escribí la categoría" style="display:none;margin-top:6px">
+      </div>
+      <div class="field"><label>Subcategoría</label>
+        <input type="text" id="edit-subdet-libre" placeholder="Escribí la subcategoría" style="display:none;margin-bottom:6px">
+        <select id="edit-subdet" onchange="document.getElementById('edit-subdet-libre').style.display=this.value==='__otro__'?'':'none'">
+          <option value="">— opcional —</option>
+          <optgroup label="Servicios"><option>Servicios - Luz</option><option>Servicios - Agua</option><option>Servicios - Internet</option><option>Servicios - Teléfono</option><option>Servicios - Gas</option></optgroup>
+          <optgroup label="Propiedades"><option>Mant. Prop. - Plomería</option><option>Mant. Prop. - Electricidad</option><option>Mant. Prop. - Pintura</option><option>Mant. Prop. - Jardinería</option><option>Mant. Prop. - Reparaciones</option><option>Cortada de pasto SJ</option><option>Cortada de pasto LP</option><option>Cortada de pasto Alberdi</option><option>Impuestos - Inmobiliario</option><option>Impuestos - Vehículos</option><option>Seguros - Propiedades/Vehículos</option><option>Expensas / Administración</option></optgroup>
+          <optgroup label="Caballos"><option>Herraduras/Herrada</option><option>Medicamentos caballos</option></optgroup>
+          <optgroup label="Seguros"><option>Seguro GR</option><option>Seguro CS</option><option>Seguro Li</option><option>Seguro SW4</option><option>Seguro Ram</option><option>Seguro trailers</option><option>Seguro auto li</option></optgroup>
+          <optgroup label="Otros"><option>CC MACRO</option><option>man cc macro</option><option>recargas claro</option></optgroup>
+          <option value="__otro__">✎ Otro (escribir)...</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg">
       <div class="field"><label>Monto ARS</label><input type="number" id="edit-monto" inputmode="numeric"></div>
       <div class="field"><label>Método</label>
         <select id="edit-metodo"><option>Efectivo</option><option>Transferencia</option><option>Mercado Pago</option><option>Cuenta corriente</option><option>cheque</option><option>CC SAN VICENTE</option><option>CC MACRO</option><option>Cuenta Galicia</option><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup><option>Otro</option></select>
@@ -1314,11 +1341,44 @@ window.editarMov = key => {
   document.getElementById('edit-metodo').value=r.metodo||'Efectivo';
   document.getElementById('edit-estado').value=r.estado||'Pagado';
   document.getElementById('edit-obs').value=r.obs||'';
+  // categoría: si el valor existe como opción la selecciona, si no usa "Otro" + texto libre
+  setSelectOrLibre('edit-cat','edit-cat-libre',r.cat||'');
+  setSelectOrLibre('edit-subdet','edit-subdet-libre',r.subdet||'');
   document.getElementById('modal-edit').classList.add('show');
+};
+
+// Setea un select: si el valor coincide con una opción la elige; si no, elige "Otro" y muestra el input libre
+function setSelectOrLibre(selId,libreId,valor){
+  const sel=document.getElementById(selId);
+  const libre=document.getElementById(libreId);
+  const existe=[...sel.options].some(o=>o.value===valor&&valor!=='');
+  if(existe){
+    sel.value=valor;
+    libre.style.display='none';
+    libre.value='';
+  } else if(valor){
+    sel.value='__otro__';
+    libre.style.display='';
+    libre.value=valor;
+  } else {
+    sel.selectedIndex=0;
+    libre.style.display='none';
+    libre.value='';
+  }
+}
+
+// Cambio de categoría en el modal de edición
+window.onCatEditChange = () => {
+  const catSel=document.getElementById('edit-cat');
+  document.getElementById('edit-cat-libre').style.display=catSel.value==='__otro__'?'':'none';
 };
 
 window.guardarEdicion = async () => {
   if(!editKey) return;
+  const catSel=document.getElementById('edit-cat').value;
+  const cat=catSel==='__otro__'?document.getElementById('edit-cat-libre').value.trim():catSel;
+  const subSel=document.getElementById('edit-subdet').value;
+  const subdet=subSel==='__otro__'?document.getElementById('edit-subdet-libre').value.trim():subSel;
   const upd={
     fecha:document.getElementById('edit-fecha').value,
     detalle:document.getElementById('edit-detalle').value.trim(),
@@ -1328,6 +1388,7 @@ window.guardarEdicion = async () => {
     metodo:document.getElementById('edit-metodo').value,
     estado:document.getElementById('edit-estado').value,
     obs:document.getElementById('edit-obs').value,
+    cat,subdet,
   };
   try{
     const orig=registros.find(x=>x.key===editKey);
