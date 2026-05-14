@@ -227,6 +227,7 @@ tr:hover td{background:var(--bg3)}
   <button class="nav-btn" onclick="showTab('recurrentes',this)">🔁 Recurrentes</button>
   <button class="nav-btn" onclick="showTab('reporte',this)">Reporte</button>
   <button class="nav-btn" onclick="showTab('analisis',this)">📊 Análisis</button>
+  <button class="nav-btn" onclick="showTab('zafra',this)">🌾 Zafra</button>
   <button class="nav-btn" onclick="showTab('unidades',this)">Por unidad</button>
 </div>
 
@@ -267,6 +268,7 @@ tr:hover td{background:var(--bg3)}
           <optgroup label="AJS / Caballos"><option>AJS</option><option>AJS ALIMENTO</option><option>AJS ALFA</option><option>AJS SAN VICENTE</option></optgroup>
           <optgroup label="Cuentas"><option>Cuenta Galicia</option><option>Cuenta Macro</option><option>LI</option></optgroup>
           <optgroup label="Otros"><option>Casa</option><option>Lavanderia</option><option>Herramientas</option><option>Insumos</option><option>Flete</option><option>Alberdi</option><option>mantenimiento</option><option>Pago tarjeta</option><option>Otros</option></optgroup>
+          <optgroup label="Ingresos"><option>Venta de azúcar</option><option>Liquidación ingenio</option><option>Venta de caña</option><option>Alquiler cochera</option><option>Alquiler propiedad</option><option>Venta caballo</option><option>Servicios / trabajos</option><option>Subsidio / ayuda</option><option>Otro ingreso</option></optgroup>
           <option value="__otro__">✎ Otro (escribir)...</option>
         </select>
         <input type="text" id="edit-cat-libre" placeholder="Escribí la categoría" style="display:none;margin-top:6px">
@@ -408,7 +410,7 @@ tr:hover td{background:var(--bg3)}
       </div>
       <div class="field" id="icat-field" style="display:none">
         <label>Categoría ingreso</label>
-        <select id="n-icat"><option value="">— opcional —</option><option>Liquidación ingenio</option><option>Venta de caña</option><option>Alquiler cochera</option><option>Alquiler propiedad</option><option>Venta caballo</option><option>Servicios / trabajos</option><option>Subsidio / ayuda</option><option>Otro ingreso</option></select>
+        <select id="n-icat"><option value="">— opcional —</option><option>Venta de azúcar</option><option>Liquidación ingenio</option><option>Venta de caña</option><option>Alquiler cochera</option><option>Alquiler propiedad</option><option>Venta caballo</option><option>Servicios / trabajos</option><option>Subsidio / ayuda</option><option>Otro ingreso</option></select>
       </div>
       <div class="field" id="subdet-field">
         <label>Subcategoría</label>
@@ -792,6 +794,21 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 
+<div id="panel-zafra" class="panel">
+  <div class="card">
+    <div class="card-title">🌾 Cierre de zafra</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Resumen completo de una zafra: cosecha, liquidaciones, ingresos y gastos asociados.</div>
+    <div class="filter-row" style="margin-bottom:10px">
+      <select class="fselect" id="zafra-sel" onchange="renderZafra()">
+        <option value="2024">Zafra 2024</option>
+        <option value="2025">Zafra 2025</option>
+        <option value="2026">Zafra 2026</option>
+      </select>
+    </div>
+    <div id="zafra-content"></div>
+  </div>
+</div>
+
 <div id="panel-bolsillos" class="panel">
   <div class="card">
     <div class="card-title">💰 Saldos por bolsillo</div>
@@ -844,6 +861,85 @@ tr:hover td{background:var(--bg3)}
     <div class="modal-btns">
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-pagar-tc')">Cancelar</button>
       <button class="btn btn-sm btn-primary" id="modal-pagar-tc-btn">Confirmar pago</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR GASTO FIJO -->
+<div class="modal-overlay" id="modal-edit-fijo">
+  <div class="modal">
+    <div class="modal-title">Editar gasto fijo</div>
+    <div id="edit-fijo-alert"></div>
+    <div class="field"><label>Detalle</label><input type="text" id="ef-detalle"></div>
+    <div class="fg">
+      <div class="field"><label>Monto ($)</label><input type="number" id="ef-monto"></div>
+      <div class="field"><label>Día del mes (1-31)</label><input type="number" id="ef-dia" min="1" max="31"></div>
+    </div>
+    <div class="fg">
+      <div class="field"><label>Cuenta de origen</label>
+        <select id="ef-metodo"><option>Efectivo</option><option>efectivo caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup></select>
+      </div>
+      <div class="field"><label>Forma de pago</label>
+        <select id="ef-forma"><option value="">— —</option><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Débito</option><option>Tarjeta</option><option>Otro</option></select>
+      </div>
+    </div>
+    <div class="fg">
+      <div class="field"><label>Responsable</label>
+        <select id="ef-resp"><option>CARLOS</option><option>FERNANDO</option><option>ALBERTO</option></select>
+      </div>
+      <div class="field"><label>Unidad</label>
+        <select id="ef-unidad"><option>U1</option><option>U4</option><option>U5</option><option>U6</option><option>Personal</option><option>Lavanderia</option></select>
+      </div>
+    </div>
+    <div class="field"><label>Categoría</label><input type="text" id="ef-cat" placeholder="Categoría"></div>
+    <div class="field"><label>Subcategoría</label><input type="text" id="ef-subdet" placeholder="Subcategoría"></div>
+    <div class="fg">
+      <div class="field"><label>Desde</label><input type="date" id="ef-desde"></div>
+      <div class="field"><label>Hasta (opcional)</label><input type="date" id="ef-hasta"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-edit-fijo')">Cancelar</button>
+      <button class="btn btn-sm btn-primary" id="modal-edit-fijo-btn">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR CUOTA -->
+<div class="modal-overlay" id="modal-edit-cuota">
+  <div class="modal">
+    <div class="modal-title">Editar compra en cuotas</div>
+    <div id="edit-cuota-alert"></div>
+    <div class="field"><label>Detalle</label><input type="text" id="ec-detalle"></div>
+    <div class="fg">
+      <div class="field"><label>Monto por cuota ($)</label><input type="number" id="ec-monto"></div>
+      <div class="field"><label>Total de cuotas</label><input type="number" id="ec-total" min="2"></div>
+    </div>
+    <div class="fg">
+      <div class="field"><label>Cuotas ya pagadas</label><input type="number" id="ec-pagadas" min="0"></div>
+      <div class="field"><label>Próxima cuota: fecha</label><input type="date" id="ec-proxima"></div>
+    </div>
+    <div class="fg">
+      <div class="field"><label>Cuenta de origen</label>
+        <select id="ec-metodo"><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup><option>Efectivo</option><option>efectivo caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option></select>
+      </div>
+      <div class="field"><label>Forma de pago</label>
+        <select id="ec-forma"><option value="">— —</option><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Débito</option><option>Tarjeta</option><option>Otro</option></select>
+      </div>
+    </div>
+    <div class="fg">
+      <div class="field"><label>Responsable</label>
+        <select id="ec-resp"><option>CARLOS</option><option>FERNANDO</option><option>ALBERTO</option></select>
+      </div>
+      <div class="field"><label>Unidad</label>
+        <select id="ec-unidad"><option>U1</option><option>U4</option><option>U5</option><option>U6</option><option>Personal</option><option>Lavanderia</option></select>
+      </div>
+    </div>
+    <div class="field"><label>Categoría</label><input type="text" id="ec-cat" placeholder="Categoría"></div>
+    <div class="field"><label>Subcategoría</label><input type="text" id="ec-subdet" placeholder="Subcategoría"></div>
+    <div style="font-size:11px;color:var(--amber);margin-top:8px">⚠ Si cambiás monto o cuotas, los movimientos ya generados en el historial no se modifican. Solo afecta las cuotas futuras.</div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-edit-cuota')">Cancelar</button>
+      <button class="btn btn-sm btn-primary" id="modal-edit-cuota-btn">Guardar cambios</button>
     </div>
   </div>
 </div>
@@ -1146,7 +1242,7 @@ onAuthStateChanged(auth, user => {
           syncLbl.textContent=`en línea · ${registros.length} registros`;
           if(typeof updateBalance==='function') updateBalance();
           const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-          const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis};
+          const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra};
           if(fn[id]) fn[id]();
         }).catch(e=>console.warn('Error recargando movRef:',e));
       }
@@ -1233,13 +1329,64 @@ function confirmDelete(cb){
   document.getElementById('modal-confirm-btn').onclick=()=>{ cb(); closeModal('modal-confirm'); };
 }
 
+// ── SISTEMA DE DESHACER ──────────────────────────────────────────
+// En vez de borrar al instante, guarda el dato y da 8 segundos para deshacer
+let undoTimer=null, undoData=null;
+
+function borrarConDeshacer(rutaBase, key, datoCompleto, descripcion){
+  // si había un borrado pendiente, ejecutarlo ya (no se puede deshacer más de uno a la vez)
+  if(undoTimer){ clearTimeout(undoTimer); ejecutarBorradoFinal(); }
+  undoData={rutaBase,key,dato:datoCompleto};
+  // borrar visualmente de una (de Firebase recién a los 8s)
+  remove(ref(db,rutaBase+'/'+key)).catch(()=>{});
+  // mostrar toast
+  mostrarToastDeshacer(descripcion);
+  undoTimer=setTimeout(()=>{
+    undoTimer=null; undoData=null;
+    ocultarToastDeshacer();
+  },8000);
+}
+
+function ejecutarBorradoFinal(){
+  // el borrado ya se hizo en Firebase, solo limpiamos el estado
+  undoData=null;
+}
+
+window.deshacerBorrado=async()=>{
+  if(!undoData) return;
+  clearTimeout(undoTimer); undoTimer=null;
+  // restaurar el dato en Firebase
+  try{
+    await set(ref(db,undoData.rutaBase+'/'+undoData.key),undoData.dato);
+  }catch(e){ console.warn('Error al restaurar:',e); }
+  undoData=null;
+  ocultarToastDeshacer();
+};
+
+function mostrarToastDeshacer(desc){
+  let toast=document.getElementById('undo-toast');
+  if(!toast){
+    toast=document.createElement('div');
+    toast.id='undo-toast';
+    toast.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:14px;z-index:500;box-shadow:0 4px 20px rgba(0,0,0,.4);font-size:13px';
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML=`<span>🗑 ${desc} eliminado</span><button onclick="deshacerBorrado()" style="background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal);border-radius:var(--radius-xs);padding:5px 12px;font-size:12px;cursor:pointer;font-weight:500">↩ Deshacer</button>`;
+  toast.style.display='flex';
+}
+
+function ocultarToastDeshacer(){
+  const toast=document.getElementById('undo-toast');
+  if(toast) toast.style.display='none';
+}
+
 // TABS
 window.showTab = (t,el) => {
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+t).classList.add('active');
   if(el) el.classList.add('active');
-  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,cosecha:renderRemitos,liquidaciones:renderLiquidaciones,empleados:renderEmpleados,caballos:renderCaballos,insumos:renderInsumos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis};
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,cosecha:renderRemitos,liquidaciones:renderLiquidaciones,empleados:renderEmpleados,caballos:renderCaballos,insumos:renderInsumos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra};
   if(fn[t]) fn[t]();
 };
 
@@ -1379,7 +1526,7 @@ window.guardar = async () => {
     syncLbl.textContent=`en línea · ${registros.length} registros`;
     updateBalance();
     const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-    const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis};
+    const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra};
     if(fn[id]) fn[id]();
     showAlert('alert-nuevo','✓ Guardado correctamente','ok');
     limpiar();
@@ -1462,7 +1609,12 @@ window.guardarEdicion = async () => {
   }catch(e){ showAlert('edit-alert','Error al guardar','err'); }
 };
 
-window.eliminarMov = key => confirmDelete(async()=>{ await remove(ref(db,'movimientos/'+key)); });
+window.eliminarMov = key => {
+  const r=registros.find(x=>x.key===key);
+  if(!r) return;
+  const {key:_,...dato}=r; // sacar el key del objeto a guardar
+  borrarConDeshacer('movimientos',key,dato,r.detalle||'Movimiento');
+};
 
 // FOTO PREVIEW
 window.previewFoto = (input,previewId) => {
@@ -1921,6 +2073,20 @@ window.setVistaHist = v => {
   renderHist();
 };
 
+// Decide qué botones de acción mostrar para un movimiento en el historial
+function accionesMovimiento(r){
+  if(r._esMaquinaria){
+    return `<a href="${MAQ_URL}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;border:1px solid var(--teal-bg);padding:3px 7px;border-radius:var(--radius-xs)">⚙ maq.</a>`;
+  }
+  if(r.fijoKey){
+    return `<span title="Generado por gasto fijo — editalo desde Recurrentes" style="font-size:10px;color:var(--text3)">🔁 auto</span>`;
+  }
+  if(r.cuotaKey){
+    return `<span title="Cuota generada automáticamente — editala desde Recurrentes" style="font-size:10px;color:var(--text3)">📅 auto</span>`;
+  }
+  return `<button class="btn-edit" onclick="editarMov('${r.key}')">✎</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button>`;
+}
+
 function renderHist(){
   const data=getFilteredHist();
   const el=document.getElementById('tabla-hist');
@@ -1938,9 +2104,7 @@ function renderHist(){
       </div>`+
       data.map(r=>{
         const isIng=r.tipo==='ingreso';
-        const acciones=r._esMaquinaria
-          ?`<a href="${MAQ_URL}" target="_blank" style="font-size:11px;color:var(--teal);text-decoration:none;border:1px solid var(--teal-bg);padding:4px 10px;border-radius:var(--radius-xs)">⚙ maquinaria</a>`
-          :`<button class="btn-edit" onclick="editarMov('${r.key}')">✎ Editar</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button>`;
+        const acciones=accionesMovimiento(r);
         return`<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${isIng?'var(--green)':'var(--red)'};border-radius:var(--radius);padding:12px 14px;margin-bottom:8px">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
             <div style="flex:1;min-width:0">
@@ -1966,7 +2130,7 @@ function renderHist(){
         </div>`;
       }).join('');
   } else {
-    el.innerHTML=`<div class="tbl-wrap"><table><tr><th>Fecha</th><th>Detalle</th><th>Unidad</th><th>Cat.</th><th>Zafra</th><th>Método</th><th>Resp.</th><th>Estado</th><th style="text-align:right">Monto</th><th></th></tr>${data.map(r=>`<tr><td class="mono" style="color:var(--text3);white-space:nowrap">${r.fecha}</td><td class="td-det">${r.detalle}</td><td><span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span></td><td style="color:var(--text3);font-size:11px" class="td-det">${r.cat||'—'}</td><td style="color:var(--text3);font-size:11px">${r.zafra||'—'}</td><td><span class="badge b-per" style="font-size:9px">${r.metodo||'—'}</span>${r.forma?` <span class="badge ${r.forma==='Cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.forma}</span>`:''}</td><td style="font-size:11px;white-space:nowrap">${r.resp}</td><td><span class="badge ${r.estado==='Pagado'||r.estado==='Cobrado'?'b-pag':'b-pend'}">${r.estado}</span></td><td style="text-align:right;white-space:nowrap" class="mono"><span style="color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">${r.tipo==='ingreso'?'+':'-'}${fmt(r.monto)}</span></td><td style="white-space:nowrap">${r._esMaquinaria?`<a href="${MAQ_URL}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;border:1px solid var(--teal-bg);padding:3px 7px;border-radius:var(--radius-xs)">⚙ maq.</a>`:`<button class="btn-edit" onclick="editarMov('${r.key}')">✎</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button>`}</td></tr>`).join('')}</table></div>`;
+    el.innerHTML=`<div class="tbl-wrap"><table><tr><th>Fecha</th><th>Detalle</th><th>Unidad</th><th>Cat.</th><th>Zafra</th><th>Método</th><th>Resp.</th><th>Estado</th><th style="text-align:right">Monto</th><th></th></tr>${data.map(r=>`<tr><td class="mono" style="color:var(--text3);white-space:nowrap">${r.fecha}</td><td class="td-det">${r.detalle}</td><td><span class="badge ${UBADGE[r.unidad]||'b-per'}">${r.unidad||'—'}</span></td><td style="color:var(--text3);font-size:11px" class="td-det">${r.cat||'—'}</td><td style="color:var(--text3);font-size:11px">${r.zafra||'—'}</td><td><span class="badge b-per" style="font-size:9px">${r.metodo||'—'}</span>${r.forma?` <span class="badge ${r.forma==='Cheque'?'b-cheque':'b-per'}" style="font-size:9px">${r.forma}</span>`:''}</td><td style="font-size:11px;white-space:nowrap">${r.resp}</td><td><span class="badge ${r.estado==='Pagado'||r.estado==='Cobrado'?'b-pag':'b-pend'}">${r.estado}</span></td><td style="text-align:right;white-space:nowrap" class="mono"><span style="color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">${r.tipo==='ingreso'?'+':'-'}${fmt(r.monto)}</span></td><td style="white-space:nowrap">${accionesMovimiento(r)}</td></tr>`).join('')}</table></div>`;
   }
 }
 window.renderHist = renderHist;
@@ -2244,6 +2408,29 @@ window.renderAnalisis = () => {
   const total=data.reduce((a,r)=>a+r.monto,0);
   const colorBarra=tipo==='gasto'?'var(--red)':'var(--green)';
 
+  // ── Comparación con el mes anterior (solo si hay un mes seleccionado) ──
+  let compHTML='';
+  if(mes){
+    const mesNum=parseInt(mes);
+    const mesAntNum=mesNum===1?12:mesNum-1;
+    const mesAnt=String(mesAntNum).padStart(2,'0');
+    let dataAnt=getAllMovimientos().filter(r=>r.tipo===tipo&&r.fecha&&r.fecha.slice(5,7)===mesAnt);
+    if(unidad) dataAnt=dataAnt.filter(r=>r.unidad===unidad);
+    const totalAnt=dataAnt.reduce((a,r)=>a+r.monto,0);
+    if(totalAnt>0){
+      const dif=total-totalAnt;
+      const pctDif=Math.round(dif/totalAnt*100);
+      const subio=dif>0;
+      // para gastos, subir es malo (rojo); para ingresos, subir es bueno (verde)
+      const colorDif=tipo==='gasto'?(subio?'var(--red)':'var(--green)'):(subio?'var(--green)':'var(--red)');
+      const MESES_NOM=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+      compHTML=`<div style="background:var(--bg2);padding:10px 12px;border-radius:var(--radius-xs);margin-bottom:14px;border-left:3px solid ${colorDif}">
+        <div style="font-size:11px;color:var(--text3)">vs ${MESES_NOM[mesAntNum]} (${fmt(totalAnt)})</div>
+        <div style="font-size:14px;font-weight:500;color:${colorDif}">${subio?'▲':'▼'} ${subio?'+':''}${fmt(dif)} (${subio?'+':''}${pctDif}%)</div>
+      </div>`;
+    }
+  }
+
   // Agrupar por categoría, y dentro de cada una por subcategoría
   const cats={};
   data.forEach(r=>{
@@ -2256,11 +2443,24 @@ window.renderAnalisis = () => {
   });
 
   const catsOrden=Object.entries(cats).sort((a,b)=>b[1].total-a[1].total);
+  const promedio=total/data.length;
+  const catTop=catsOrden[0];
 
   cont.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 14px;border-bottom:1px solid var(--border);margin-bottom:14px">
       <span style="font-size:13px;color:var(--text3)">${data.length} movimientos en ${catsOrden.length} categoría${catsOrden.length>1?'s':''}</span>
       <span style="font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:${colorBarra}">${tipo==='gasto'?'−':'+'}${fmt(total)}</span>
+    </div>
+    ${compHTML}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      <div style="background:var(--bg2);padding:8px 10px;border-radius:var(--radius-xs)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Promedio por movimiento</div>
+        <div style="font-family:'DM Mono',monospace;font-size:14px">${fmt(promedio)}</div>
+      </div>
+      <div style="background:var(--bg2);padding:8px 10px;border-radius:var(--radius-xs)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Categoría más alta</div>
+        <div style="font-size:13px;font-weight:500">${catTop[0]} <span style="color:var(--text3);font-size:11px">${Math.round(catTop[1].total/total*100)}%</span></div>
+      </div>
     </div>
     ${catsOrden.map(([cat,info])=>{
       const pct=Math.round(info.total/total*100);
@@ -2273,7 +2473,7 @@ window.renderAnalisis = () => {
         <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-bottom:6px">
           <div style="height:100%;width:${pct}%;background:${colorBarra};opacity:.7"></div>
         </div>
-        <div style="font-size:10px;color:var(--text3);margin-bottom:6px">${info.count} movimiento${info.count>1?'s':''}</div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:6px">${info.count} movimiento${info.count>1?'s':''} · promedio ${fmt(info.total/info.count)}</div>
         ${subsOrden.map(([sub,val])=>{
           const subPct=Math.round(val/info.total*100);
           return`<div style="display:flex;justify-content:space-between;padding:4px 0 4px 14px;border-left:2px solid var(--border);margin-left:4px;font-size:12px">
@@ -2283,6 +2483,115 @@ window.renderAnalisis = () => {
         }).join('')}
       </div>`;
     }).join('')}
+  `;
+};
+
+// CIERRE DE ZAFRA
+window.renderZafra = () => {
+  const zafra=document.getElementById('zafra-sel').value;
+  const cont=document.getElementById('zafra-content');
+
+  // Remitos de esa zafra
+  const remZafra=remitos.filter(r=>r.zafra===zafra);
+  // Liquidaciones de esa zafra
+  const liqZafra=liquidaciones.filter(l=>l.zafra===zafra);
+  // Movimientos de esa zafra (gastos e ingresos cargados con esa zafra)
+  const movZafra=getAllMovimientos().filter(r=>r.zafra===zafra);
+
+  if(!remZafra.length&&!liqZafra.length&&!movZafra.length){
+    cont.innerHTML=`<div class="empty"><div class="empty-icon">🌾</div>Sin datos cargados para la zafra ${zafra}</div>`;
+    return;
+  }
+
+  // Cosecha: kilos pesados
+  const remitosPesados=remZafra.filter(r=>r.kilos&&parseFloat(String(r.kilos).replace(/[^\d.]/g,''))>0);
+  let totalKilos=0;
+  remitosPesados.forEach(r=>{
+    const k=parseFloat(String(r.kilos).replace(/[^\d.]/g,''))||0;
+    // si el número es chico (ej 28.5) asumimos toneladas, lo pasamos a kg
+    totalKilos+=(k<1000?k*1000:k);
+  });
+  const totalToneladas=totalKilos/1000;
+
+  // Liquidaciones
+  const totalTonLiq=liqZafra.reduce((a,l)=>a+(l.toneladas||0),0);
+  const totalMontoLiq=liqZafra.reduce((a,l)=>a+(l.monto||0),0);
+  const rendProm=liqZafra.length?(liqZafra.reduce((a,l)=>a+(l.rendimiento||0),0)/liqZafra.length):0;
+  const liqCobradas=liqZafra.filter(l=>l.estado==='Cobrada'||l.estado==='Cobrado').reduce((a,l)=>a+(l.monto||0),0);
+  const liqPendientes=totalMontoLiq-liqCobradas;
+
+  // Ingresos y gastos de la zafra
+  const ingresosZafra=movZafra.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+r.monto,0);
+  const gastosZafra=movZafra.filter(r=>r.tipo==='gasto').reduce((a,r)=>a+r.monto,0);
+  const resultado=ingresosZafra-gastosZafra;
+
+  // Gastos de la zafra por categoría
+  const gastosPorCat={};
+  movZafra.filter(r=>r.tipo==='gasto').forEach(r=>{
+    const c=r.cat||'(Sin categoría)';
+    gastosPorCat[c]=(gastosPorCat[c]||0)+r.monto;
+  });
+  const catsOrden=Object.entries(gastosPorCat).sort((a,b)=>b[1]-a[1]);
+
+  cont.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div style="background:var(--bg2);padding:12px;border-radius:var(--radius-xs);border-left:3px solid var(--teal)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Cosecha (remitos pesados)</div>
+        <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:500">${totalToneladas.toFixed(1)} tn</div>
+        <div style="font-size:10px;color:var(--text3)">${remitosPesados.length} de ${remZafra.length} remitos pesados</div>
+      </div>
+      <div style="background:var(--bg2);padding:12px;border-radius:var(--radius-xs);border-left:3px solid var(--amber)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Liquidado por ingenio</div>
+        <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:500">${totalTonLiq.toFixed(1)} tn</div>
+        <div style="font-size:10px;color:var(--text3)">Rendimiento promedio: ${rendProm.toFixed(2)}%</div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:500;margin-bottom:10px">💰 Resultado económico de la zafra ${zafra}</div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span>Ingresos de la zafra</span>
+        <span style="font-family:'DM Mono',monospace;color:var(--green)">+${fmt(ingresosZafra)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span>Gastos de la zafra</span>
+        <span style="font-family:'DM Mono',monospace;color:var(--red)">−${fmt(gastosZafra)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-size:14px;font-weight:500">
+        <span>Resultado</span>
+        <span style="font-family:'DM Mono',monospace;color:${resultado>=0?'var(--green)':'var(--red)'}">${resultado<0?'−':''}${fmt(Math.abs(resultado))}</span>
+      </div>
+    </div>
+
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:500;margin-bottom:10px">🏭 Liquidaciones del ingenio</div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span>Total liquidado</span>
+        <span style="font-family:'DM Mono',monospace">${fmt(totalMontoLiq)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span>Cobrado</span>
+        <span style="font-family:'DM Mono',monospace;color:var(--green)">${fmt(liqCobradas)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
+        <span>Pendiente de cobro</span>
+        <span style="font-family:'DM Mono',monospace;color:var(--amber)">${fmt(liqPendientes)}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">${liqZafra.length} liquidación${liqZafra.length!==1?'es':''} cargada${liqZafra.length!==1?'s':''}</div>
+    </div>
+
+    ${catsOrden.length?`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px">
+      <div style="font-size:13px;font-weight:500;margin-bottom:10px">📊 Gastos de la zafra por categoría</div>
+      ${catsOrden.map(([cat,monto])=>{
+        const pct=Math.round(monto/gastosZafra*100);
+        return`<div style="margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span>${cat}</span><span style="font-family:'DM Mono',monospace;color:var(--red)">${fmt(monto)} <span style="color:var(--text3)">${pct}%</span></span>
+          </div>
+          <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--red);opacity:.6"></div></div>
+        </div>`;
+      }).join('')}
+    </div>`:''}
   `;
 };
 
@@ -2315,7 +2624,7 @@ get(movRef).then(snap=>{
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis};
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra};
   if(fn[id]) fn[id]();
 }).catch(()=>{/* sin auth todavía, se reintentará cuando el usuario haga login */});
 
@@ -2332,7 +2641,7 @@ onValue(movRef,snap=>{
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis};
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra};
   if(fn[id]) fn[id]();
 },(err)=>{
   syncDot.style.background='var(--red)';
@@ -2775,6 +3084,43 @@ window.eliminarFijo=key=>{
   confirmDelete(async()=>{ await remove(ref(db,'fijos/'+key)); });
 };
 
+window.abrirEditarFijo=key=>{
+  const f=fijos.find(x=>x.key===key); if(!f) return;
+  document.getElementById('ef-detalle').value=f.detalle||'';
+  document.getElementById('ef-monto').value=f.monto||0;
+  document.getElementById('ef-dia').value=f.dia||1;
+  document.getElementById('ef-metodo').value=f.metodo||'Efectivo';
+  document.getElementById('ef-forma').value=f.forma||'';
+  document.getElementById('ef-resp').value=f.resp||'CARLOS';
+  document.getElementById('ef-unidad').value=f.unidad||'U1';
+  document.getElementById('ef-cat').value=f.cat||'';
+  document.getElementById('ef-subdet').value=f.subdet||'';
+  document.getElementById('ef-desde').value=f.desde||'';
+  document.getElementById('ef-hasta').value=f.hasta||'';
+  document.getElementById('modal-edit-fijo-btn').onclick=async()=>{
+    const upd={
+      detalle:document.getElementById('ef-detalle').value.trim(),
+      monto:parseFloat(document.getElementById('ef-monto').value)||0,
+      dia:parseInt(document.getElementById('ef-dia').value)||1,
+      metodo:document.getElementById('ef-metodo').value,
+      forma:document.getElementById('ef-forma').value,
+      resp:document.getElementById('ef-resp').value,
+      unidad:document.getElementById('ef-unidad').value,
+      cat:document.getElementById('ef-cat').value.trim(),
+      subdet:document.getElementById('ef-subdet').value.trim(),
+      desde:document.getElementById('ef-desde').value||today(),
+      hasta:document.getElementById('ef-hasta').value||'',
+    };
+    if(!upd.detalle||!upd.monto){ showAlert('edit-fijo-alert','Completá detalle y monto','err'); return; }
+    try{
+      await set(ref(db,'fijos/'+key),{...f,...upd});
+      showAlert('edit-fijo-alert','✓ Guardado','ok');
+      setTimeout(()=>closeModal('modal-edit-fijo'),900);
+    }catch(e){ showAlert('edit-fijo-alert','Error al guardar','err'); }
+  };
+  document.getElementById('modal-edit-fijo').classList.add('show');
+};
+
 window.pausarFijo=async(key,nuevoEstado)=>{
   await set(ref(db,'fijos/'+key+'/activo'),nuevoEstado);
 };
@@ -2824,6 +3170,44 @@ window.limpiarCuota=()=>{
 
 window.eliminarCuota=key=>{
   confirmDelete(async()=>{ await remove(ref(db,'cuotas/'+key)); });
+};
+
+window.abrirEditarCuota=key=>{
+  const c=cuotas.find(x=>x.key===key); if(!c) return;
+  document.getElementById('ec-detalle').value=c.detalle||'';
+  document.getElementById('ec-monto').value=c.monto||0;
+  document.getElementById('ec-total').value=c.total||2;
+  document.getElementById('ec-pagadas').value=c.pagadas||0;
+  document.getElementById('ec-proxima').value=c.proxima||'';
+  document.getElementById('ec-metodo').value=c.metodo||'Efectivo';
+  document.getElementById('ec-forma').value=c.forma||'';
+  document.getElementById('ec-resp').value=c.resp||'CARLOS';
+  document.getElementById('ec-unidad').value=c.unidad||'U1';
+  document.getElementById('ec-cat').value=c.cat||'';
+  document.getElementById('ec-subdet').value=c.subdet||'';
+  document.getElementById('modal-edit-cuota-btn').onclick=async()=>{
+    const upd={
+      detalle:document.getElementById('ec-detalle').value.trim(),
+      monto:parseFloat(document.getElementById('ec-monto').value)||0,
+      total:parseInt(document.getElementById('ec-total').value)||2,
+      pagadas:parseInt(document.getElementById('ec-pagadas').value)||0,
+      proxima:document.getElementById('ec-proxima').value,
+      metodo:document.getElementById('ec-metodo').value,
+      forma:document.getElementById('ec-forma').value,
+      resp:document.getElementById('ec-resp').value,
+      unidad:document.getElementById('ec-unidad').value,
+      cat:document.getElementById('ec-cat').value.trim(),
+      subdet:document.getElementById('ec-subdet').value.trim(),
+    };
+    if(!upd.detalle||!upd.monto||!upd.proxima){ showAlert('edit-cuota-alert','Completá detalle, monto y próxima fecha','err'); return; }
+    if(upd.pagadas>=upd.total){ showAlert('edit-cuota-alert','Las pagadas no pueden superar el total','err'); return; }
+    try{
+      await set(ref(db,'cuotas/'+key),{...c,...upd,activo:upd.pagadas<upd.total});
+      showAlert('edit-cuota-alert','✓ Guardado','ok');
+      setTimeout(()=>closeModal('modal-edit-cuota'),900);
+    }catch(e){ showAlert('edit-cuota-alert','Error al guardar','err'); }
+  };
+  document.getElementById('modal-edit-cuota').classList.add('show');
 };
 
 // Generar los gastos automáticos que correspondan según las fechas
@@ -2925,6 +3309,7 @@ function renderFijos(){
         <div style="text-align:right">
           <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--red)">−${fmt(f.monto)}</div>
           <div style="display:flex;gap:4px;margin-top:6px;justify-content:flex-end">
+            <button class="btn-edit btn-sm" onclick="abrirEditarFijo('${f.key}')" title="Editar">✎</button>
             <button class="btn-edit btn-sm" onclick="pausarFijo('${f.key}',${!f.activo})" title="${inactivo?'Activar':'Pausar'}">${inactivo?'▶':'⏸'}</button>
             <button class="btn-del btn-sm" onclick="eliminarFijo('${f.key}')">✕</button>
           </div>
@@ -2956,7 +3341,7 @@ function renderCuotas(){
           <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--red)">−${fmt(c.monto)}</div>
           <div style="font-size:10px;color:var(--text3)">x ${restantes} restantes</div>
           <div style="font-size:10px;color:var(--red)">Total: ${fmt(totalAdeudado)}</div>
-          <div style="margin-top:4px"><button class="btn-del btn-sm" onclick="eliminarCuota('${c.key}')">✕</button></div>
+          <div style="margin-top:4px;display:flex;gap:4px;justify-content:flex-end"><button class="btn-edit btn-sm" onclick="abrirEditarCuota('${c.key}')" title="Editar">✎</button><button class="btn-del btn-sm" onclick="eliminarCuota('${c.key}')">✕</button></div>
         </div>
       </div>
     </div>`;
