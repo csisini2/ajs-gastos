@@ -1974,13 +1974,26 @@ function renderDash(){
 
     if(esTC){
       // para tarjetas usamos calcularCicloTarjeta (descuenta los pagos de resumen)
-      const{deudaTotal,aPagar,proximoResumen}=calcularCicloTarjeta(m);
+      const{deudaTotal,aPagar,proximoResumen,vencActual,diasParaVenc}=calcularCicloTarjeta(m);
       // si nunca se usó la tarjeta, no mostrar
       if(deudaTotal<=0&&aPagar<=0&&proximoResumen<=0&&!movs.length) return '';
       const colorTC=deudaTotal>0?'var(--red)':'var(--green)';
+      // texto de vencimiento
+      let vencHTML='';
+      if(vencActual){
+        const urgente=diasParaVenc!==null&&diasParaVenc<=5;
+        const vencido=diasParaVenc!==null&&diasParaVenc<0;
+        const colorVenc=vencido?'var(--red)':urgente?'var(--amber)':'var(--text3)';
+        const txt=diasParaVenc===null?vencActual
+          :vencido?`Venció ${vencActual} (hace ${Math.abs(diasParaVenc)}d)`
+          :diasParaVenc===0?`Vence HOY ${vencActual}`
+          :`Vence ${vencActual} (${diasParaVenc}d)`;
+        vencHTML=`<div style="font-size:9px;color:${colorVenc};margin-top:1px">📅 ${txt}</div>`;
+      }
       return`<div class="metric" style="border-left:3px solid ${deudaTotal>0?'var(--red)':'var(--green)'}">
         <div class="m-lbl" style="font-size:9px">${m}</div>
-        <div style="display:flex;flex-direction:column;gap:2px;margin-top:6px">
+        ${vencHTML}
+        <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px">
           ${aPagar>0?`<div style="font-size:11px;color:var(--red);font-family:'DM Mono',monospace">A pagar: ${fmt(aPagar)}</div>`:''}
           ${proximoResumen>0?`<div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Próx: ${fmt(proximoResumen)}</div>`:''}
           <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:${colorTC};margin-top:3px;border-top:1px solid var(--border);padding-top:3px">Debe: ${fmt(Math.max(0,deudaTotal))}</div>
