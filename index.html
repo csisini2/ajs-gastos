@@ -858,7 +858,31 @@ tr:hover td{background:var(--bg3)}
       <div class="field"><label>Unidad</label>
         <select id="rec-unidad"><option>U1</option><option>U4</option><option>U5</option><option>U6</option><option>Personal</option><option>Lavanderia</option></select>
       </div>
-      <div class="field"><label>Categoría</label><input type="text" id="rec-cat" placeholder="ej: Casa, Servicios"></div>
+      <div class="field"><label>Categoría</label>
+        <select id="rec-cat" onchange="onCatRecChange('rec')">
+          <option value="">— opcional —</option>
+          <optgroup label="Campo"><option>Campo/combustible</option><option>Campo/menus</option><option>Campo/bar</option><option>Campo/Viaticos</option><option>Campo/des.mer</option><option>Campo/repuestos</option><option>Campo/cosecha</option><option>Campo/arreglos herramientas</option><option>Campo/Plantada</option></optgroup>
+          <optgroup label="Sueldos"><option>Campo/Sueldo</option><option>AJS/Sueldo</option></optgroup>
+          <optgroup label="Adelantos"><option>Campo/Adelanto</option><option>AJS/Adelanto</option></optgroup>
+          <optgroup label="AJS / Caballos"><option>AJS</option><option>AJS ALIMENTO</option><option>AJS ALFA</option><option>AJS SAN VICENTE</option></optgroup>
+          <optgroup label="Cuentas"><option>Cuenta Galicia</option><option>Cuenta Macro</option><option>LI</option></optgroup>
+          <optgroup label="Otros"><option>Casa</option><option>Lavanderia</option><option>Herramientas</option><option>Insumos</option><option>Flete</option><option>Alberdi</option><option>mantenimiento</option><option>Otros</option></optgroup>
+          <option value="__otro__">✎ Otro (escribir)...</option>
+        </select>
+        <input type="text" id="rec-cat-libre" placeholder="Escribí la categoría" style="display:none;margin-top:6px">
+      </div>
+      <div class="field"><label>Subcategoría</label>
+        <input type="text" id="rec-subdet-libre" placeholder="Escribí la subcategoría" style="display:none;margin-bottom:6px">
+        <select id="rec-subdet" onchange="document.getElementById('rec-subdet-libre').style.display=this.value==='__otro__'?'':'none'">
+          <option value="">— opcional —</option>
+          <optgroup label="Servicios"><option>Servicios - Luz</option><option>Servicios - Agua</option><option>Servicios - Internet</option><option>Servicios - Teléfono</option><option>Servicios - Gas</option></optgroup>
+          <optgroup label="Propiedades"><option>Mant. Prop. - Plomería</option><option>Mant. Prop. - Electricidad</option><option>Mant. Prop. - Pintura</option><option>Mant. Prop. - Jardinería</option><option>Mant. Prop. - Reparaciones</option><option>Cortada de pasto SJ</option><option>Cortada de pasto LP</option><option>Cortada de pasto Alberdi</option><option>Impuestos - Inmobiliario</option><option>Impuestos - Vehículos</option><option>Seguros - Propiedades/Vehículos</option><option>Expensas / Administración</option></optgroup>
+          <optgroup label="Caballos"><option>Herraduras/Herrada</option><option>Medicamentos caballos</option></optgroup>
+          <optgroup label="Seguros"><option>Seguro GR</option><option>Seguro CS</option><option>Seguro Li</option><option>Seguro SW4</option><option>Seguro Ram</option><option>Seguro trailers</option><option>Seguro auto li</option></optgroup>
+          <optgroup label="Otros"><option>CC MACRO</option><option>man cc macro</option><option>recargas claro</option></optgroup>
+          <option value="__otro__">✎ Otro (escribir)...</option>
+        </select>
+      </div>
       <div class="field"><label>Fecha desde la cual aplica</label><input type="date" id="rec-desde"></div>
       <div class="field"><label>Hasta (opcional, vacío = sin fin)</label><input type="date" id="rec-hasta"></div>
     </div>
@@ -893,7 +917,31 @@ tr:hover td{background:var(--bg3)}
       <div class="field"><label>Unidad</label>
         <select id="cu-unidad"><option>U1</option><option>U4</option><option>U5</option><option>U6</option><option>Personal</option><option>Lavanderia</option></select>
       </div>
-      <div class="field"><label>Categoría</label><input type="text" id="cu-cat" placeholder="ej: Casa, Herramientas"></div>
+      <div class="field"><label>Categoría</label>
+        <select id="cu-cat" onchange="onCatRecChange('cu')">
+          <option value="">— opcional —</option>
+          <optgroup label="Campo"><option>Campo/combustible</option><option>Campo/menus</option><option>Campo/bar</option><option>Campo/Viaticos</option><option>Campo/des.mer</option><option>Campo/repuestos</option><option>Campo/cosecha</option><option>Campo/arreglos herramientas</option><option>Campo/Plantada</option></optgroup>
+          <optgroup label="Sueldos"><option>Campo/Sueldo</option><option>AJS/Sueldo</option></optgroup>
+          <optgroup label="Adelantos"><option>Campo/Adelanto</option><option>AJS/Adelanto</option></optgroup>
+          <optgroup label="AJS / Caballos"><option>AJS</option><option>AJS ALIMENTO</option><option>AJS ALFA</option><option>AJS SAN VICENTE</option></optgroup>
+          <optgroup label="Cuentas"><option>Cuenta Galicia</option><option>Cuenta Macro</option><option>LI</option></optgroup>
+          <optgroup label="Otros"><option>Casa</option><option>Lavanderia</option><option>Herramientas</option><option>Insumos</option><option>Flete</option><option>Alberdi</option><option>mantenimiento</option><option>Otros</option></optgroup>
+          <option value="__otro__">✎ Otro (escribir)...</option>
+        </select>
+        <input type="text" id="cu-cat-libre" placeholder="Escribí la categoría" style="display:none;margin-top:6px">
+      </div>
+      <div class="field"><label>Subcategoría</label>
+        <input type="text" id="cu-subdet-libre" placeholder="Escribí la subcategoría" style="display:none;margin-bottom:6px">
+        <select id="cu-subdet" onchange="document.getElementById('cu-subdet-libre').style.display=this.value==='__otro__'?'':'none'">
+          <option value="">— opcional —</option>
+          <optgroup label="Servicios"><option>Servicios - Luz</option><option>Servicios - Agua</option><option>Servicios - Internet</option><option>Servicios - Teléfono</option><option>Servicios - Gas</option></optgroup>
+          <optgroup label="Propiedades"><option>Mant. Prop. - Plomería</option><option>Mant. Prop. - Electricidad</option><option>Mant. Prop. - Pintura</option><option>Mant. Prop. - Jardinería</option><option>Mant. Prop. - Reparaciones</option><option>Cortada de pasto SJ</option><option>Cortada de pasto LP</option><option>Cortada de pasto Alberdi</option><option>Impuestos - Inmobiliario</option><option>Impuestos - Vehículos</option><option>Seguros - Propiedades/Vehículos</option><option>Expensas / Administración</option></optgroup>
+          <optgroup label="Caballos"><option>Herraduras/Herrada</option><option>Medicamentos caballos</option></optgroup>
+          <optgroup label="Seguros"><option>Seguro GR</option><option>Seguro CS</option><option>Seguro Li</option><option>Seguro SW4</option><option>Seguro Ram</option><option>Seguro trailers</option><option>Seguro auto li</option></optgroup>
+          <optgroup label="Otros"><option>CC MACRO</option><option>man cc macro</option><option>recargas claro</option></optgroup>
+          <option value="__otro__">✎ Otro (escribir)...</option>
+        </select>
+      </div>
     </div>
     <div class="row-btns">
       <button class="btn btn-primary" onclick="guardarCuota()">Guardar compra en cuotas</button>
@@ -2457,6 +2505,34 @@ onValue(notasRef,snap=>{
 // GASTOS FIJOS MENSUALES + COMPRAS EN CUOTAS
 // ═══════════════════════════════════════════════════════════════
 
+// Maneja el cambio de categoría en formularios de recurrentes (prefijo: 'rec' o 'cu')
+window.onCatRecChange = prefijo => {
+  const catSel=document.getElementById(prefijo+'-cat');
+  const catLibre=document.getElementById(prefijo+'-cat-libre');
+  const subSel=document.getElementById(prefijo+'-subdet');
+  const subLibre=document.getElementById(prefijo+'-subdet-libre');
+  // mostrar campo libre de categoría si eligió "Otro"
+  catLibre.style.display=catSel.value==='__otro__'?'':'none';
+  // si la categoría es Sueldo o Adelanto, rellenar subcategoría con empleados
+  const esSueldoAdelanto=/sueldo|adelanto/i.test(catSel.value);
+  if(esSueldoAdelanto){
+    const base=['Carlos','Fernando','Lucas','Tiago','Loco','Balaza','Sebastian','Gaby'];
+    const delPanel=empleados.filter(e=>e.activo!==false).map(e=>e.nombre);
+    const todos=[...new Set([...base,...delPanel])];
+    subSel.innerHTML=`<option value="">— elegí empleado —</option>${todos.map(n=>`<option>${n}</option>`).join('')}<option value="__otro__">Otro (escribir nombre)...</option>`;
+  } else {
+    subSel.innerHTML=`<option value="">— opcional —</option>
+      <optgroup label="Servicios"><option>Servicios - Luz</option><option>Servicios - Agua</option><option>Servicios - Internet</option><option>Servicios - Teléfono</option><option>Servicios - Gas</option></optgroup>
+      <optgroup label="Propiedades"><option>Mant. Prop. - Plomería</option><option>Mant. Prop. - Electricidad</option><option>Mant. Prop. - Pintura</option><option>Mant. Prop. - Jardinería</option><option>Mant. Prop. - Reparaciones</option><option>Cortada de pasto SJ</option><option>Cortada de pasto LP</option><option>Cortada de pasto Alberdi</option><option>Impuestos - Inmobiliario</option><option>Impuestos - Vehículos</option><option>Seguros - Propiedades/Vehículos</option><option>Expensas / Administración</option></optgroup>
+      <optgroup label="Caballos"><option>Herraduras/Herrada</option><option>Medicamentos caballos</option></optgroup>
+      <optgroup label="Seguros"><option>Seguro GR</option><option>Seguro CS</option><option>Seguro Li</option><option>Seguro SW4</option><option>Seguro Ram</option><option>Seguro trailers</option><option>Seguro auto li</option></optgroup>
+      <optgroup label="Otros"><option>CC MACRO</option><option>man cc macro</option><option>recargas claro</option></optgroup>
+      <option value="__otro__">✎ Otro (escribir)...</option>`;
+  }
+  subLibre.style.display='none';
+  subLibre.value='';
+};
+
 window.guardarFijo=async()=>{
   const detalle=document.getElementById('rec-detalle').value.trim();
   const monto=parseFloat(document.getElementById('rec-monto').value)||0;
@@ -2464,7 +2540,10 @@ window.guardarFijo=async()=>{
   const metodo=document.getElementById('rec-metodo').value;
   const resp=document.getElementById('rec-resp').value;
   const unidad=document.getElementById('rec-unidad').value;
-  const cat=document.getElementById('rec-cat').value.trim();
+  const catSel=document.getElementById('rec-cat').value;
+  const cat=catSel==='__otro__'?document.getElementById('rec-cat-libre').value.trim():catSel;
+  const subSel=document.getElementById('rec-subdet').value;
+  const subdet=subSel==='__otro__'?document.getElementById('rec-subdet-libre').value.trim():subSel;
   const desde=document.getElementById('rec-desde').value||today();
   const hasta=document.getElementById('rec-hasta').value||'';
   if(!detalle||!monto||!dia||dia>31||dia<1){
@@ -2472,7 +2551,7 @@ window.guardarFijo=async()=>{
     return;
   }
   try{
-    await push(fijosRef,{detalle,monto,dia,metodo,resp,unidad,cat,desde,hasta,activo:true,ts:serverTimestamp()});
+    await push(fijosRef,{detalle,monto,dia,metodo,resp,unidad,cat,subdet,desde,hasta,activo:true,ts:serverTimestamp()});
     showAlert('alert-rec','✓ Gasto fijo guardado','ok');
     limpiarFijo();
   }catch(e){
@@ -2481,7 +2560,11 @@ window.guardarFijo=async()=>{
 };
 
 window.limpiarFijo=()=>{
-  ['rec-detalle','rec-monto','rec-dia','rec-cat','rec-desde','rec-hasta'].forEach(id=>document.getElementById(id).value='');
+  ['rec-detalle','rec-monto','rec-dia','rec-desde','rec-hasta','rec-cat-libre','rec-subdet-libre'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('rec-cat').selectedIndex=0;
+  document.getElementById('rec-subdet').selectedIndex=0;
+  document.getElementById('rec-cat-libre').style.display='none';
+  document.getElementById('rec-subdet-libre').style.display='none';
 };
 
 window.eliminarFijo=key=>{
@@ -2501,7 +2584,10 @@ window.guardarCuota=async()=>{
   const metodo=document.getElementById('cu-metodo').value;
   const resp=document.getElementById('cu-resp').value;
   const unidad=document.getElementById('cu-unidad').value;
-  const cat=document.getElementById('cu-cat').value.trim();
+  const catSel=document.getElementById('cu-cat').value;
+  const cat=catSel==='__otro__'?document.getElementById('cu-cat-libre').value.trim():catSel;
+  const subSel=document.getElementById('cu-subdet').value;
+  const subdet=subSel==='__otro__'?document.getElementById('cu-subdet-libre').value.trim():subSel;
   if(!detalle||!monto||!total||total<2||!proxima||!metodo){
     showAlert('alert-cuota','Completá todos los campos obligatorios','err');
     return;
@@ -2511,7 +2597,7 @@ window.guardarCuota=async()=>{
     return;
   }
   try{
-    await push(cuotasRef,{detalle,monto,total,pagadas,proxima,metodo,resp,unidad,cat,activo:true,ts:serverTimestamp()});
+    await push(cuotasRef,{detalle,monto,total,pagadas,proxima,metodo,resp,unidad,cat,subdet,activo:true,ts:serverTimestamp()});
     showAlert('alert-cuota','✓ Compra en cuotas guardada','ok');
     limpiarCuota();
   }catch(e){
@@ -2520,8 +2606,12 @@ window.guardarCuota=async()=>{
 };
 
 window.limpiarCuota=()=>{
-  ['cu-detalle','cu-monto','cu-total','cu-proxima','cu-cat'].forEach(id=>document.getElementById(id).value='');
+  ['cu-detalle','cu-monto','cu-total','cu-proxima','cu-cat-libre','cu-subdet-libre'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('cu-pagadas').value='0';
+  document.getElementById('cu-cat').selectedIndex=0;
+  document.getElementById('cu-subdet').selectedIndex=0;
+  document.getElementById('cu-cat-libre').style.display='none';
+  document.getElementById('cu-subdet-libre').style.display='none';
 };
 
 window.eliminarCuota=key=>{
@@ -2550,7 +2640,7 @@ async function generarRecurrentes(){
       if(!yaExiste){
         await push(movRef,{
           tipo:'gasto',fecha:fechaStr,detalle:f.detalle,resp:f.resp,unidad:f.unidad,
-          cat:f.cat||'',subdet:'',zafra:'',monto:f.monto,metodo:f.metodo,estado:'Pagado',
+          cat:f.cat||'',subdet:f.subdet||'',zafra:'',monto:f.monto,metodo:f.metodo,estado:'Pagado',
           prov:'',obs:`🔁 Gasto fijo mensual`,chequeVenc:'',
           fijoKey:f.key,ts:serverTimestamp()
         });
@@ -2572,7 +2662,7 @@ async function generarRecurrentes(){
       if(!yaExiste){
         await push(movRef,{
           tipo:'gasto',fecha:proxima,detalle:`${c.detalle} · cuota ${cuotaNum}/${totalCuotas}`,
-          resp:c.resp,unidad:c.unidad,cat:c.cat||'',subdet:'',zafra:'',
+          resp:c.resp,unidad:c.unidad,cat:c.cat||'',subdet:c.subdet||'',zafra:'',
           monto:c.monto,metodo:c.metodo,estado:'Pagado',
           prov:'',obs:`📅 Cuota ${cuotaNum} de ${totalCuotas}`,chequeVenc:'',
           cuotaKey:c.key,cuotaNum,ts:serverTimestamp()
@@ -2606,7 +2696,7 @@ function renderFijos(){
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="flex:1">
           <div style="font-size:14px;font-weight:500">${f.detalle}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:3px">Día ${f.dia} · ${f.metodo} · ${f.resp} · ${f.unidad}${f.cat?' · '+f.cat:''}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">Día ${f.dia} · ${f.metodo} · ${f.resp} · ${f.unidad}${f.cat?' · '+f.cat:''}${f.subdet?' · '+f.subdet:''}</div>
           <div style="font-size:10px;color:var(--text3);margin-top:2px">Desde ${f.desde}${f.hasta?' hasta '+f.hasta:' (sin fin)'}</div>
         </div>
         <div style="text-align:right">
@@ -2634,7 +2724,7 @@ function renderCuotas(){
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="flex:1">
           <div style="font-size:14px;font-weight:500">${c.detalle}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:3px">${c.metodo} · ${c.resp} · ${c.unidad}${c.cat?' · '+c.cat:''}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">${c.metodo} · ${c.resp} · ${c.unidad}${c.cat?' · '+c.cat:''}${c.subdet?' · '+c.subdet:''}</div>
           <div style="font-size:12px;margin-top:6px">
             ${completa?`<span style="color:var(--green)">✓ Pagada completa (${c.total}/${c.total})</span>`:`Próxima: <strong>cuota ${cuotaActual}/${c.total}</strong> · ${c.proxima}`}
           </div>
