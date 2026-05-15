@@ -1051,6 +1051,92 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 
+<!-- MODAL EDITAR LIQUIDACIÓN AZÚCAR -->
+<div class="modal-overlay" id="modal-edit-liqaz">
+  <div class="modal">
+    <div class="modal-title">Editar liquidación</div>
+    <div id="edit-liqaz-alert"></div>
+    <div class="fg">
+      <div class="field"><label>Zafra</label>
+        <select id="el-zafra"><option>2024</option><option>2025</option><option>2026</option><option>2027</option></select>
+      </div>
+      <div class="field"><label>Línea</label>
+        <select id="el-linea"><option value="B1">Línea 1 (B1)</option><option value="B2">Línea 2 (B2)</option></select>
+      </div>
+    </div>
+    <div class="field"><label>Cantidad de bolsas</label><input type="number" id="el-bolsas"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-edit-liqaz')">Cancelar</button>
+      <button class="btn btn-sm btn-primary" id="modal-edit-liqaz-btn">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR RETIRO -->
+<div class="modal-overlay" id="modal-edit-retiro">
+  <div class="modal">
+    <div class="modal-title">Editar retiro</div>
+    <div id="edit-retiro-alert"></div>
+    <div class="field"><label>Ingenio</label><input type="text" id="er-ingenio"></div>
+    <div class="fg">
+      <div class="field"><label>Línea</label>
+        <select id="er-linea"><option value="1">Línea 1</option><option value="2">Línea 2</option></select>
+      </div>
+      <div class="field"><label>N° de orden</label><input type="text" id="er-orden" placeholder="solo Línea 1"></div>
+    </div>
+    <div class="fg">
+      <div class="field"><label>Cantidad de bolsas</label><input type="number" id="er-cantidad"></div>
+      <div class="field"><label>¿Retirada?</label>
+        <select id="er-retirada"><option value="SI">SÍ — ya retirada</option><option value="NO">NO — pendiente</option></select>
+      </div>
+    </div>
+    <div class="field"><label>Recibió</label><input type="text" id="er-recibio"></div>
+    <div class="fg">
+      <div class="field"><label>Fecha a retirar</label><input type="date" id="er-fecha-a"></div>
+      <div class="field"><label>Fecha de retiro</label><input type="date" id="er-fecha-r"></div>
+    </div>
+    <div class="field"><label>Observaciones</label><input type="text" id="er-obs"></div>
+    <div class="field"><label>Foto de la orden (dejar vacío para mantener la actual)</label><input type="file" id="er-foto" accept="image/*"></div>
+    <div id="er-foto-actual" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-edit-retiro')">Cancelar</button>
+      <button class="btn btn-sm btn-primary" id="modal-edit-retiro-btn">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR DESCUENTO -->
+<div class="modal-overlay" id="modal-edit-descbol">
+  <div class="modal">
+    <div class="modal-title">Editar descuento de bolsas</div>
+    <div id="edit-descbol-alert"></div>
+    <div class="fg">
+      <div class="field"><label>Cantidad de bolsas</label><input type="number" id="ed-cantidad"></div>
+      <div class="field"><label>A quién</label><input type="text" id="ed-aquien"></div>
+    </div>
+    <div class="field"><label>Fecha</label><input type="date" id="ed-fecha"></div>
+    <div class="field"><label>Observaciones</label><input type="text" id="ed-obs"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-edit-descbol')">Cancelar</button>
+      <button class="btn btn-sm btn-primary" id="modal-edit-descbol-btn">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR STOCK FUTURO -->
+<div class="modal-overlay" id="modal-edit-futuro">
+  <div class="modal">
+    <div class="modal-title">Editar estimación futura</div>
+    <div id="edit-futuro-alert"></div>
+    <div class="field"><label>Descripción</label><input type="text" id="efu-desc"></div>
+    <div class="field"><label>Bolsas estimadas</label><input type="number" id="efu-bolsas"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-edit-futuro')">Cancelar</button>
+      <button class="btn btn-sm btn-primary" id="modal-edit-futuro-btn">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 <div id="panel-notas" class="panel">
   <div class="card">
     <div id="alert-nota"></div>
@@ -3670,7 +3756,7 @@ function renderLiqAzucarList(){
   const data=liqAzucar.slice().sort((a,b)=>(b.zafra||'').localeCompare(a.zafra||''));
   cont.innerHTML=data.map(l=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg2);border-radius:var(--radius-xs);margin-bottom:6px;font-size:13px">
     <span>Zafra ${l.zafra} · <strong>${l.linea}</strong></span>
-    <span style="display:flex;align-items:center;gap:8px"><span style="font-family:'DM Mono',monospace">${l.bolsas} bolsas</span><button class="btn-del btn-sm" onclick="eliminarLiqAzucar('${l.key}')">✕</button></span>
+    <span style="display:flex;align-items:center;gap:8px"><span style="font-family:'DM Mono',monospace">${l.bolsas} bolsas</span><button class="btn-edit btn-sm" onclick="abrirEditarLiqAz('${l.key}')">✎</button><button class="btn-del btn-sm" onclick="eliminarLiqAzucar('${l.key}')">✕</button></span>
   </div>`).join('');
 }
 
@@ -3737,6 +3823,7 @@ function renderRetiros(){
           <div style="font-size:10px;color:var(--text3)">bolsas</div>
           <span class="badge ${retirada?'b-pag':'b-pend'}" style="margin-top:4px">${retirada?'Retirada':'Pendiente'}</span>
           <div style="display:flex;gap:4px;margin-top:6px;justify-content:flex-end">
+            <button class="btn-edit btn-sm" onclick="abrirEditarRetiro('${r.key}')" title="Editar">✎</button>
             <button class="btn-edit btn-sm" onclick="toggleRetirada('${r.key}','${retirada?'NO':'SI'}')" title="${retirada?'Marcar pendiente':'Marcar retirada'}">${retirada?'↩':'✓'}</button>
             <button class="btn-del btn-sm" onclick="eliminarRetiro('${r.key}')">✕</button>
           </div>
@@ -3770,7 +3857,7 @@ function renderDescBolsasList(){
   const data=descBolsas.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   cont.innerHTML=data.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg2);border-radius:var(--radius-xs);margin-bottom:6px;font-size:13px">
     <span><strong>${d.cantidad} bolsas</strong> → ${d.aQuien} <span style="color:var(--text3);font-size:11px">· ${d.fecha}${d.obs?' · '+d.obs:''}</span></span>
-    <button class="btn-del btn-sm" onclick="eliminarDescBolsas('${d.key}')">✕</button>
+    <span style="display:flex;gap:4px"><button class="btn-edit btn-sm" onclick="abrirEditarDescBol('${d.key}')">✎</button><button class="btn-del btn-sm" onclick="eliminarDescBolsas('${d.key}')">✕</button></span>
   </div>`).join('');
 }
 
@@ -3794,11 +3881,113 @@ function renderFuturoList(){
   const data=stockFuturo.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   cont.innerHTML=data.map(f=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg2);border-radius:var(--radius-xs);margin-bottom:6px;font-size:13px">
     <span>${f.desc} <span style="color:var(--text3);font-size:11px">· ${f.fecha}</span></span>
-    <span style="display:flex;align-items:center;gap:8px"><span style="font-family:'DM Mono',monospace">${f.bolsas} bolsas</span><button class="btn-del btn-sm" onclick="eliminarFuturo('${f.key}')">✕</button></span>
+    <span style="display:flex;align-items:center;gap:8px"><span style="font-family:'DM Mono',monospace">${f.bolsas} bolsas</span><button class="btn-edit btn-sm" onclick="abrirEditarFuturo('${f.key}')">✎</button><button class="btn-del btn-sm" onclick="eliminarFuturo('${f.key}')">✕</button></span>
   </div>`).join('');
 }
 
 // Render completo del panel de stock
+// ── EDICIÓN DE STOCK ────────────────────────────────────────────
+window.abrirEditarLiqAz=key=>{
+  const l=liqAzucar.find(x=>x.key===key); if(!l) return;
+  document.getElementById('el-zafra').value=l.zafra||'2026';
+  document.getElementById('el-linea').value=l.linea||'B1';
+  document.getElementById('el-bolsas').value=l.bolsas||0;
+  document.getElementById('modal-edit-liqaz-btn').onclick=async()=>{
+    const bolsas=parseInt(document.getElementById('el-bolsas').value)||0;
+    if(!bolsas){ showAlert('edit-liqaz-alert','Ingresá la cantidad','err'); return; }
+    try{
+      await set(ref(db,'liqAzucar/'+key),{...l,
+        zafra:document.getElementById('el-zafra').value,
+        linea:document.getElementById('el-linea').value,
+        bolsas
+      });
+      showAlert('edit-liqaz-alert','✓ Guardado','ok');
+      setTimeout(()=>closeModal('modal-edit-liqaz'),800);
+    }catch(e){ showAlert('edit-liqaz-alert','Error al guardar','err'); }
+  };
+  document.getElementById('modal-edit-liqaz').classList.add('show');
+};
+
+window.abrirEditarRetiro=key=>{
+  const r=retiros.find(x=>x.key===key); if(!r) return;
+  document.getElementById('er-ingenio').value=r.ingenio||'';
+  document.getElementById('er-linea').value=r.linea||'1';
+  document.getElementById('er-orden').value=r.orden||'';
+  document.getElementById('er-cantidad').value=r.cantidad||0;
+  document.getElementById('er-retirada').value=r.retirada||'NO';
+  document.getElementById('er-recibio').value=r.recibio||'';
+  document.getElementById('er-fecha-a').value=r.fechaA||'';
+  document.getElementById('er-fecha-r').value=r.fechaR||'';
+  document.getElementById('er-obs').value=r.obs||'';
+  document.getElementById('er-foto').value='';
+  document.getElementById('er-foto-actual').textContent=r.fotoUrl?'✓ Tiene una foto cargada':'Sin foto';
+  document.getElementById('modal-edit-retiro-btn').onclick=async()=>{
+    const cantidad=parseInt(document.getElementById('er-cantidad').value)||0;
+    if(!cantidad){ showAlert('edit-retiro-alert','Ingresá la cantidad','err'); return; }
+    let fotoUrl=r.fotoUrl||'';
+    const fotoInput=document.getElementById('er-foto');
+    if(fotoInput.files[0]){
+      try{ fotoUrl=await new Promise(res=>{ const rd=new FileReader(); rd.onload=e=>res(e.target.result); rd.readAsDataURL(fotoInput.files[0]); }); }catch(e){}
+    }
+    try{
+      await set(ref(db,'retiros/'+key),{...r,
+        ingenio:document.getElementById('er-ingenio').value.trim(),
+        linea:document.getElementById('er-linea').value,
+        orden:document.getElementById('er-orden').value.trim(),
+        cantidad,
+        retirada:document.getElementById('er-retirada').value,
+        recibio:document.getElementById('er-recibio').value.trim(),
+        fechaA:document.getElementById('er-fecha-a').value,
+        fechaR:document.getElementById('er-fecha-r').value,
+        obs:document.getElementById('er-obs').value.trim(),
+        fotoUrl
+      });
+      showAlert('edit-retiro-alert','✓ Guardado','ok');
+      setTimeout(()=>closeModal('modal-edit-retiro'),800);
+    }catch(e){ showAlert('edit-retiro-alert','Error al guardar','err'); }
+  };
+  document.getElementById('modal-edit-retiro').classList.add('show');
+};
+
+window.abrirEditarDescBol=key=>{
+  const d=descBolsas.find(x=>x.key===key); if(!d) return;
+  document.getElementById('ed-cantidad').value=d.cantidad||0;
+  document.getElementById('ed-aquien').value=d.aQuien||'';
+  document.getElementById('ed-fecha').value=d.fecha||'';
+  document.getElementById('ed-obs').value=d.obs||'';
+  document.getElementById('modal-edit-descbol-btn').onclick=async()=>{
+    const cantidad=parseInt(document.getElementById('ed-cantidad').value)||0;
+    const aQuien=document.getElementById('ed-aquien').value.trim();
+    if(!cantidad||!aQuien){ showAlert('edit-descbol-alert','Completá cantidad y a quién','err'); return; }
+    try{
+      await set(ref(db,'descBolsas/'+key),{...d,cantidad,aQuien,
+        fecha:document.getElementById('ed-fecha').value,
+        obs:document.getElementById('ed-obs').value.trim()
+      });
+      showAlert('edit-descbol-alert','✓ Guardado','ok');
+      setTimeout(()=>closeModal('modal-edit-descbol'),800);
+    }catch(e){ showAlert('edit-descbol-alert','Error al guardar','err'); }
+  };
+  document.getElementById('modal-edit-descbol').classList.add('show');
+};
+
+window.abrirEditarFuturo=key=>{
+  const f=stockFuturo.find(x=>x.key===key); if(!f) return;
+  document.getElementById('efu-desc').value=f.desc||'';
+  document.getElementById('efu-bolsas').value=f.bolsas||0;
+  document.getElementById('modal-edit-futuro-btn').onclick=async()=>{
+    const desc=document.getElementById('efu-desc').value.trim();
+    const bolsas=parseInt(document.getElementById('efu-bolsas').value)||0;
+    if(!desc||!bolsas){ showAlert('edit-futuro-alert','Completá descripción y cantidad','err'); return; }
+    try{
+      await set(ref(db,'stockFuturo/'+key),{...f,desc,bolsas});
+      showAlert('edit-futuro-alert','✓ Guardado','ok');
+      setTimeout(()=>closeModal('modal-edit-futuro'),800);
+    }catch(e){ showAlert('edit-futuro-alert','Error al guardar','err'); }
+  };
+  document.getElementById('modal-edit-futuro').classList.add('show');
+};
+
 function renderStock(){
   renderStockResumen();
   renderLiqAzucarList();
