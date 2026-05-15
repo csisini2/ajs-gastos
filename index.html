@@ -816,7 +816,14 @@ tr:hover td{background:var(--bg3)}
 <div id="panel-stock" class="panel">
   <!-- RESUMEN DE STOCK -->
   <div class="card">
-    <div class="card-title">📦 Stock de azúcar</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+      <div class="card-title" style="margin:0">📦 Stock de azúcar</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="exportarStockExcel()">📊 Excel</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportarStockPDF()">📄 PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="importarDatos2025()" id="btn-importar-2025">⬇ Importar datos 2025</button>
+      </div>
+    </div>
     <div id="stock-resumen"></div>
   </div>
 
@@ -3569,6 +3576,78 @@ function renderStockResumen(){
         <span>🔮 Stock futuro estimado</span><span style="font-family:'DM Mono',monospace">+${s.totalFuturo} bolsas</span>
       </div>`:''}
     </div>`;
+
+  // ── DETALLE VENTA POR VENTA ──
+  const ventas=getAllMovimientos()
+    .filter(r=>r.tipo==='ingreso'&&r.cat==='Venta de azúcar'&&r.bolsas)
+    .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  let ventasHTML='';
+  if(ventas.length){
+    let acumBolsas=ventas.reduce((a,v)=>a+(parseInt(v.bolsas)||0),0);
+    const totalMonto=ventas.reduce((a,v)=>a+(v.monto||0),0);
+    ventasHTML=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:13px;font-weight:500">🛒 Detalle de ventas (${ventas.length})</span>
+        <span style="font-size:11px;color:var(--text3)">${acumBolsas} bolsas · $${totalMonto.toLocaleString('es-AR')}</span>
+      </div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="color:var(--text3);font-size:10px;text-transform:uppercase">
+          <th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--border)">Fecha</th>
+          <th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--border)">Detalle</th>
+          <th style="text-align:right;padding:5px 6px;border-bottom:1px solid var(--border)">Bolsas</th>
+          <th style="text-align:right;padding:5px 6px;border-bottom:1px solid var(--border)">$/bolsa</th>
+          <th style="text-align:right;padding:5px 6px;border-bottom:1px solid var(--border)">Monto</th>
+          <th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--border)">Cobró en</th>
+        </tr>
+        ${ventas.map(v=>{
+          const b=parseInt(v.bolsas)||0;
+          const precioBolsa=b?Math.round(v.monto/b):0;
+          return`<tr>
+            <td style="padding:5px 6px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;color:var(--text3)">${v.fecha}</td>
+            <td style="padding:5px 6px;border-bottom:1px solid var(--border)">${v.detalle||'—'}</td>
+            <td style="padding:5px 6px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace">${b}</td>
+            <td style="padding:5px 6px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace;color:var(--text3)">$${precioBolsa.toLocaleString('es-AR')}</td>
+            <td style="padding:5px 6px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace;color:var(--green)">$${(v.monto||0).toLocaleString('es-AR')}</td>
+            <td style="padding:5px 6px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text3)">${v.metodo||'—'}</td>
+          </tr>`;
+        }).join('')}
+      </table></div>
+    </div>`;
+  }
+
+  // ── DETALLE INGRESO POR INGRESO (RETIROS) ──
+  const retOrden=retiros.slice().sort((a,b)=>(b.fechaR||b.fechaA||'').localeCompare(a.fechaR||a.fechaA||''));
+  let retHTML='';
+  if(retOrden.length){
+    retHTML=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:13px;font-weight:500">🚚 Detalle de retiros del ingenio (${retOrden.length})</span>
+        <span style="font-size:11px;color:var(--text3)">${retOrden.reduce((a,r)=>a+r.cantidad,0)} bolsas</span>
+      </div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="color:var(--text3);font-size:10px;text-transform:uppercase">
+          <th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--border)">Línea</th>
+          <th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--border)">N° Orden</th>
+          <th style="text-align:right;padding:5px 6px;border-bottom:1px solid var(--border)">Bolsas</th>
+          <th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--border)">Estado</th>
+          <th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--border)">Recibió</th>
+          <th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--border)">Fecha retiro</th>
+          <th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--border)">Foto</th>
+        </tr>
+        ${retOrden.map(r=>`<tr>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border)">L${r.linea}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:11px">${r.orden||'—'}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace">${r.cantidad}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border)"><span style="font-size:10px;color:${r.retirada==='SI'?'var(--green)':'var(--amber)'}">${r.retirada==='SI'?'Retirada':'Pendiente'}</span></td>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text3)">${r.recibio||'—'}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;color:var(--text3);font-size:11px">${r.fechaR||r.fechaA||'—'}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border)">${r.fotoUrl?`<a href="${r.fotoUrl}" target="_blank" style="color:var(--teal);font-size:11px">📷 ver</a>`:'—'}</td>
+        </tr>`).join('')}
+      </table></div>
+    </div>`;
+  }
+
+  cont.innerHTML+=ventasHTML+retHTML;
 }
 
 // ── LIQUIDACIÓN DE AZÚCAR ───────────────────────────────────────
@@ -3727,6 +3806,177 @@ function renderStock(){
   renderDescBolsasList();
   renderFuturoList();
 }
+
+// ── IMPORTAR DATOS 2025 (carga única desde el Excel) ────────────
+const RETIROS_2025=[
+  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"1000128384",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-08-16",fechaR:"2025-08-16",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"1000128384",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-08-19",fechaR:"2025-08-19",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-08-25",fechaR:"2025-08-25",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"1000128416",cantidad:600,retirada:"SI",recibio:"",fechaA:"",fechaR:"",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"1000128417",cantidad:600,retirada:"NO",recibio:"",fechaA:"",fechaR:"",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-02",fechaR:"2025-09-03",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-06",fechaR:"2025-09-06",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-11",fechaR:"2025-09-11",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-15",fechaR:"2025-09-16",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-22",fechaR:"2025-09-20",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-27",fechaR:"2025-09-27",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-29",fechaR:"2025-09-29",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-10-01",fechaR:"2025-10-01",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"1000128545",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-10-04",fechaR:"2025-10-04",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"1000128544",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-10-09",fechaR:"2025-10-09",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:417,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-10-25",fechaR:"2025-10-25",obs:""},
+  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"",cantidad:112,retirada:"SI",recibio:"SAN VICENTE",fechaA:"",fechaR:"",obs:""}
+];
+
+window.importarDatos2025=async()=>{
+  if(!confirm('Esto va a cargar:\n• Liquidación 2025: B1 3712 + B2 5817 bolsas\n• Descuento: 204 bolsas a BRAGUE\n• 17 retiros del ingenio\n\n¿Continuar?')) return;
+  const btn=document.getElementById('btn-importar-2025');
+  btn.textContent='Importando...'; btn.disabled=true;
+  try{
+    // verificar si ya hay datos para no duplicar
+    if(liqAzucar.length||retiros.length||descBolsas.length){
+      if(!confirm('⚠ Ya hay datos cargados en el stock. Si continuás se van a AGREGAR los datos 2025 igual (puede duplicar). ¿Seguro?')){
+        btn.textContent='⬇ Importar datos 2025'; btn.disabled=false;
+        return;
+      }
+    }
+    // 1) Liquidaciones
+    await push(liqAzucarRef,{zafra:'2025',linea:'B1',bolsas:3712,fecha:today(),ts:serverTimestamp()});
+    await push(liqAzucarRef,{zafra:'2025',linea:'B2',bolsas:5817,fecha:today(),ts:serverTimestamp()});
+    // 2) Descuento de Brague
+    await push(descBolsasRef,{cantidad:204,aQuien:'BRAGUE',fecha:'2025-10-31',obs:'Pago en azúcar por compra de caña',ts:serverTimestamp()});
+    // 3) Retiros
+    for(const r of RETIROS_2025){
+      await push(retirosRef,{...r,fotoUrl:'',ts:serverTimestamp()});
+    }
+    btn.textContent='✓ Importado';
+    showAlert('alert-liqaz','✓ Datos 2025 importados correctamente','ok');
+    setTimeout(()=>{ btn.textContent='⬇ Importar datos 2025'; btn.disabled=false; },3000);
+  }catch(e){
+    showAlert('alert-liqaz','Error al importar: '+e.message,'err');
+    btn.textContent='⬇ Importar datos 2025'; btn.disabled=false;
+  }
+};
+
+// ── EXPORTAR STOCK A EXCEL ──────────────────────────────────────
+window.exportarStockExcel=()=>{
+  const s=calcularStockAzucar();
+  const ventas=getAllMovimientos().filter(r=>r.tipo==='ingreso'&&r.cat==='Venta de azúcar'&&r.bolsas);
+  // armar CSV (Excel lo abre directo)
+  let csv='AJS - STOCK DE AZUCAR\n';
+  csv+=`Generado,${today()}\n\n`;
+  csv+='RESUMEN\n';
+  csv+=`Liquidado por ingenio,${s.totalLiquidado}\n`;
+  csv+=`Retirado del ingenio,${s.totalRetirado}\n`;
+  csv+=`Pendiente de retirar,${s.pendienteRetiro}\n`;
+  csv+=`Vendido,${s.totalVendido}\n`;
+  csv+=`Descuentos,${s.totalDescuentos}\n`;
+  csv+=`STOCK DISPONIBLE,${s.stockDisponible}\n`;
+  csv+=`Por retirar del ingenio,${s.porRetirar}\n\n`;
+
+  csv+='LIQUIDACIONES DEL INGENIO\n';
+  csv+='Zafra,Linea,Bolsas\n';
+  liqAzucar.forEach(l=>{ csv+=`${l.zafra},${l.linea},${l.bolsas}\n`; });
+  csv+='\n';
+
+  csv+='RETIROS DEL INGENIO\n';
+  csv+='Ingenio,Linea,N Orden,Cantidad,Retirada,Recibio,Fecha a retirar,Fecha de retiro,Obs\n';
+  retiros.slice().sort((a,b)=>(a.fechaR||a.fechaA||'').localeCompare(b.fechaR||b.fechaA||'')).forEach(r=>{
+    csv+=`${r.ingenio||''},${r.linea},${r.orden||''},${r.cantidad},${r.retirada},${r.recibio||''},${r.fechaA||''},${r.fechaR||''},${(r.obs||'').replace(/,/g,';')}\n`;
+  });
+  csv+='\n';
+
+  csv+='DESCUENTOS DE BOLSAS\n';
+  csv+='Cantidad,A quien,Fecha,Obs\n';
+  descBolsas.forEach(d=>{ csv+=`${d.cantidad},${d.aQuien},${d.fecha||''},${(d.obs||'').replace(/,/g,';')}\n`; });
+  csv+='\n';
+
+  csv+='VENTAS DE AZUCAR\n';
+  csv+='Fecha,Detalle,Bolsas,Monto,Metodo,Responsable\n';
+  ventas.slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')).forEach(v=>{
+    csv+=`${v.fecha},${(v.detalle||'').replace(/,/g,';')},${v.bolsas},${v.monto},${v.metodo||''},${v.resp||''}\n`;
+  });
+
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`AJS_stock_azucar_${today()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+// ── EXPORTAR STOCK A PDF ────────────────────────────────────────
+window.exportarStockPDF=()=>{
+  const s=calcularStockAzucar();
+  const ventas=getAllMovimientos().filter(r=>r.tipo==='ingreso'&&r.cat==='Venta de azúcar'&&r.bolsas)
+    .slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  const retOrden=retiros.slice().sort((a,b)=>(a.fechaR||a.fechaA||'').localeCompare(b.fechaR||b.fechaA||''));
+  const kg=n=>(n*50).toLocaleString('es-AR');
+
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>AJS - Stock de azúcar</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:30px;color:#1a1a1a;font-size:12px}
+    h1{font-size:20px;margin:0 0 4px} h2{font-size:14px;margin:20px 0 8px;border-bottom:2px solid #1a1a1a;padding-bottom:3px}
+    .sub{color:#666;font-size:11px;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse;margin-bottom:12px}
+    th,td{border:1px solid #ccc;padding:5px 7px;text-align:left;font-size:11px}
+    th{background:#f0f0f0}
+    .num{text-align:right;font-family:monospace}
+    .resumen{display:flex;gap:16px;margin-bottom:8px}
+    .rbox{border:1px solid #ccc;padding:8px 12px;border-radius:4px}
+    .rbox .lbl{font-size:9px;color:#666;text-transform:uppercase}
+    .rbox .val{font-size:18px;font-weight:bold;font-family:monospace}
+    .total-row{font-weight:bold;background:#f7f7f7}
+    @media print{body{margin:15px}}
+  </style></head><body>
+  <h1>AJS — Stock de azúcar</h1>
+  <div class="sub">Empresa familiar Sisini · Generado el ${today()}</div>
+
+  <div class="resumen">
+    <div class="rbox"><div class="lbl">Stock disponible</div><div class="val">${s.stockDisponible} bolsas</div><div style="font-size:9px;color:#666">${kg(s.stockDisponible)} kg</div></div>
+    <div class="rbox"><div class="lbl">Por retirar</div><div class="val">${s.porRetirar} bolsas</div><div style="font-size:9px;color:#666">${kg(s.porRetirar)} kg</div></div>
+    <div class="rbox"><div class="lbl">Total liquidado</div><div class="val">${s.totalLiquidado}</div></div>
+  </div>
+
+  <h2>Detalle del movimiento de bolsas</h2>
+  <table>
+    <tr><td>Liquidado por el ingenio</td><td class="num">${s.totalLiquidado}</td></tr>
+    <tr><td>Retirado del ingenio</td><td class="num">+${s.totalRetirado}</td></tr>
+    <tr><td>Pendiente de retirar</td><td class="num">${s.pendienteRetiro}</td></tr>
+    <tr><td>Vendido</td><td class="num">−${s.totalVendido}</td></tr>
+    <tr><td>Descuentos (pagos en azúcar)</td><td class="num">−${s.totalDescuentos}</td></tr>
+    <tr class="total-row"><td>STOCK DISPONIBLE</td><td class="num">${s.stockDisponible} bolsas</td></tr>
+  </table>
+
+  <h2>Liquidaciones del ingenio</h2>
+  <table><tr><th>Zafra</th><th>Línea</th><th class="num">Bolsas</th></tr>
+  ${liqAzucar.map(l=>`<tr><td>${l.zafra}</td><td>${l.linea}</td><td class="num">${l.bolsas}</td></tr>`).join('')}
+  <tr class="total-row"><td colspan="2">Total</td><td class="num">${s.totalLiquidado}</td></tr>
+  </table>
+
+  <h2>Retiros del ingenio (${retOrden.length})</h2>
+  <table><tr><th>Línea</th><th>N° Orden</th><th class="num">Cantidad</th><th>Retirada</th><th>Recibió</th><th>Fecha retiro</th></tr>
+  ${retOrden.map(r=>`<tr><td>L${r.linea}</td><td>${r.orden||'—'}</td><td class="num">${r.cantidad}</td><td>${r.retirada}</td><td>${r.recibio||'—'}</td><td>${r.fechaR||r.fechaA||'—'}</td></tr>`).join('')}
+  <tr class="total-row"><td colspan="2">Total retirado</td><td class="num">${retOrden.reduce((a,r)=>a+r.cantidad,0)}</td><td colspan="3"></td></tr>
+  </table>
+
+  ${descBolsas.length?`<h2>Descuentos de bolsas</h2>
+  <table><tr><th class="num">Cantidad</th><th>A quién</th><th>Fecha</th><th>Observaciones</th></tr>
+  ${descBolsas.map(d=>`<tr><td class="num">${d.cantidad}</td><td>${d.aQuien}</td><td>${d.fecha||'—'}</td><td>${d.obs||'—'}</td></tr>`).join('')}
+  </table>`:''}
+
+  ${ventas.length?`<h2>Ventas de azúcar (${ventas.length})</h2>
+  <table><tr><th>Fecha</th><th>Detalle</th><th class="num">Bolsas</th><th class="num">Monto</th><th>Método</th></tr>
+  ${ventas.map(v=>`<tr><td>${v.fecha}</td><td>${v.detalle||'—'}</td><td class="num">${v.bolsas}</td><td class="num">$${(v.monto||0).toLocaleString('es-AR')}</td><td>${v.metodo||'—'}</td></tr>`).join('')}
+  <tr class="total-row"><td colspan="2">Total</td><td class="num">${ventas.reduce((a,v)=>a+(parseInt(v.bolsas)||0),0)}</td><td class="num">$${ventas.reduce((a,v)=>a+(v.monto||0),0).toLocaleString('es-AR')}</td><td></td></tr>
+  </table>`:''}
+
+  <div style="margin-top:30px;font-size:10px;color:#999;text-align:center">AJS Gestión de Empresa — Documento generado automáticamente</div>
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`);
+  w.document.close();
+};
 
 // LISTENERS de stock
 onValue(liqAzucarRef,snap=>{
