@@ -1418,29 +1418,8 @@ onAuthStateChanged(auth, user => {
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app-root').style.display='';
     document.getElementById('user-info').textContent = `${user.email}${esAdmin?' · admin':' · solo lectura'}`;
-    // Forzar recarga de datos ahora que hay permisos
-    setTimeout(()=>{
-      if(typeof movRef !== 'undefined'){
-        get(movRef).then(snap=>{
-          registros=[];
-          snap.forEach(c=>{ registros.push({...c.val(),key:c.key}); });
-          registros.sort((a,b)=>{
-            const df=(b.fecha||'').localeCompare(a.fecha||'');
-            if(df!==0) return df;
-            const ta=typeof b.ts==='number'?b.ts:0;
-            const tb=typeof a.ts==='number'?a.ts:0;
-            return ta-tb;
-          });
-          syncDot.classList.add('online'); syncDot.style.background='';
-          syncLbl.textContent=`en línea · ${registros.length} registros`;
-          if(typeof updateBalance==='function') updateBalance();
-          const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-          const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock};
-          if(fn[id]) fn[id]();
-        }).catch(e=>console.warn('Error recargando movRef:',e));
-      }
-      aplicarPermisos();
-    }, 200);
+    // Recargar TODOS los datos ahora que hay sesión confirmada
+    setTimeout(()=>{ recargarTodo(); aplicarPermisos(); }, 200);
   } else {
     usuarioActual = null;
     esAdmin = false;
@@ -1452,6 +1431,61 @@ onAuthStateChanged(auth, user => {
     document.getElementById('login-btn').disabled=false;
   }
 });
+
+// Recarga completa de todas las colecciones con get() — se llama cuando
+// la sesión se confirma (incluido al recargar la página o autocompletar)
+async function recargarTodo(){
+  try{
+    const refs={
+      movimientos:movRef, remitos:remitosRef, liquidaciones:liqRef,
+      empleados:empRef, caballos:cabRef, insumos:insRef, adelantos:adelantosRef,
+      tarjetas:tarjetasRef, notas:notasRef, fijos:fijosRef, cuotas:cuotasRef,
+      liqAzucar:liqAzucarRef, retiros:retirosRef, descBolsas:descBolsasRef, stockFuturo:futuroRef
+    };
+    const [mSnap,reSnap,liSnap,emSnap,caSnap,inSnap,adSnap,taSnap,noSnap,fiSnap,cuSnap,laSnap,rtSnap,dbSnap,sfSnap]=await Promise.all([
+      get(refs.movimientos),get(refs.remitos),get(refs.liquidaciones),get(refs.empleados),
+      get(refs.caballos),get(refs.insumos),get(refs.adelantos),get(refs.tarjetas),
+      get(refs.notas),get(refs.fijos),get(refs.cuotas),get(refs.liqAzucar),
+      get(refs.retiros),get(refs.descBolsas),get(refs.stockFuturo)
+    ]);
+    registros=[]; mSnap.forEach(c=>{ registros.push({...c.val(),key:c.key}); });
+    registros.sort((a,b)=>{
+      const df=(b.fecha||'').localeCompare(a.fecha||'');
+      if(df!==0) return df;
+      const ta=typeof b.ts==='number'?b.ts:0;
+      const tb=typeof a.ts==='number'?a.ts:0;
+      return ta-tb;
+    });
+    remitos=[]; reSnap.forEach(c=>{ remitos.push({...c.val(),key:c.key}); }); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    liquidaciones=[]; liSnap.forEach(c=>{ liquidaciones.push({...c.val(),key:c.key}); }); liquidaciones.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    empleados=[]; emSnap.forEach(c=>{ empleados.push({...c.val(),key:c.key}); });
+    caballos=[]; caSnap.forEach(c=>{ caballos.push({...c.val(),key:c.key}); });
+    insumos=[]; inSnap.forEach(c=>{ insumos.push({...c.val(),key:c.key}); });
+    adelantos=[]; adSnap.forEach(c=>{ adelantos.push({...c.val(),key:c.key}); });
+    tarjetas={}; taSnap.forEach(c=>{ const v=c.val(); tarjetas[v.nombre]=v; });
+    notas=[]; noSnap.forEach(c=>{ notas.push({...c.val(),key:c.key}); });
+    fijos=[]; fiSnap.forEach(c=>{ fijos.push({...c.val(),key:c.key}); });
+    cuotas=[]; cuSnap.forEach(c=>{ cuotas.push({...c.val(),key:c.key}); });
+    liqAzucar=[]; laSnap.forEach(c=>{ liqAzucar.push({...c.val(),key:c.key}); });
+    retiros=[]; rtSnap.forEach(c=>{ retiros.push({...c.val(),key:c.key}); });
+    descBolsas=[]; dbSnap.forEach(c=>{ descBolsas.push({...c.val(),key:c.key}); });
+    stockFuturo=[]; sfSnap.forEach(c=>{ stockFuturo.push({...c.val(),key:c.key}); });
+
+    syncDot.classList.add('online'); syncDot.style.background='';
+    syncLbl.textContent=`en línea · ${registros.length} registros`;
+    if(typeof updateBalance==='function') updateBalance();
+    // re-render del panel activo
+    const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
+    const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock,cosecha:renderRemitos,liquidaciones:renderLiquidaciones,empleados:renderEmpleados,insumos:renderInsumos};
+    if(fn[id]) fn[id]();
+    // generar recurrentes una vez con datos frescos
+    if(typeof generarRecurrentes==='function') generarRecurrentes();
+  }catch(e){
+    console.warn('Error en recargarTodo:',e);
+    syncDot.style.background='var(--red)';
+    syncLbl.textContent='sin conexión — reintentá recargar';
+  }
+}
 
 // Enter en el login envía el formulario
 document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') iniciarSesion(); });
