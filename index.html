@@ -289,7 +289,7 @@ tr:hover td{background:var(--bg3)}
     <div class="fg">
       <div class="field"><label>Monto ARS</label><input type="number" id="edit-monto" inputmode="numeric"></div>
       <div class="field"><label>Cuenta de origen</label>
-        <select id="edit-metodo"><option>Efectivo</option><option>efectivo caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup><option>Otro</option></select>
+        <select id="edit-metodo"><option>Efectivo</option><option>efectivo caballos</option><option>transferencia caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup><option>Otro</option></select>
       </div>
     </div>
     <div class="fg">
@@ -433,7 +433,7 @@ tr:hover td{background:var(--bg3)}
     <div class="fg">
       <div class="field"><label>Monto (ARS)</label><input type="number" id="n-monto" placeholder="0" min="0" inputmode="numeric"></div>
       <div class="field"><label>Cuenta de origen</label>
-        <select id="n-metodo" onchange="onCuentaChange('n')"><option value="">— —</option><option>Efectivo</option><option>efectivo caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup><option>Otro</option></select>
+        <select id="n-metodo" onchange="onCuentaChange('n')"><option value="">— —</option><option>Efectivo</option><option>efectivo caballos</option><option>transferencia caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup><option>Otro</option></select>
       </div>
     </div>
     <div class="fg">
@@ -984,7 +984,7 @@ tr:hover td{background:var(--bg3)}
     </div>
     <div class="fg">
       <div class="field"><label>Cuenta de origen</label>
-        <select id="ef-metodo"><option>Efectivo</option><option>efectivo caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup></select>
+        <select id="ef-metodo"><option>Efectivo</option><option>efectivo caballos</option><option>transferencia caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup></select>
       </div>
       <div class="field"><label>Forma de pago</label>
         <select id="ef-forma"><option value="">— —</option><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Débito</option><option>Tarjeta</option><option>Otro</option></select>
@@ -1027,7 +1027,7 @@ tr:hover td{background:var(--bg3)}
     </div>
     <div class="fg">
       <div class="field"><label>Cuenta de origen</label>
-        <select id="ec-metodo"><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup><option>Efectivo</option><option>efectivo caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option></select>
+        <select id="ec-metodo"><optgroup label="Tarjetas crédito"><option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option></optgroup><option>Efectivo</option><option>efectivo caballos</option><option>transferencia caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option></select>
       </div>
       <div class="field"><label>Forma de pago</label>
         <select id="ec-forma"><option value="">— —</option><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Débito</option><option>Tarjeta</option><option>Otro</option></select>
@@ -1190,7 +1190,7 @@ tr:hover td{background:var(--bg3)}
       <div class="field"><label>Cuenta de origen</label>
         <select id="rec-metodo" onchange="onCuentaChange('rec')">
           <option value="Efectivo">Efectivo</option>
-          <option value="efectivo caballos">efectivo caballos</option>
+          <option value="efectivo caballos">efectivo caballos</option><option value="transferencia caballos">transferencia caballos</option>
           <option value="Mercado Pago">Mercado Pago</option>
           <option value="Cuenta Galicia">Cuenta Galicia</option>
           <option value="Cuenta corriente">Cuenta corriente</option>
@@ -1263,7 +1263,7 @@ tr:hover td{background:var(--bg3)}
           <optgroup label="Tarjetas crédito">
             <option>TC American</option><option>TC Visa</option><option>TC Mastercard Carlos</option><option>TC Visa Carlos</option>
           </optgroup>
-          <option>Efectivo</option><option>efectivo caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option>
+          <option>Efectivo</option><option>efectivo caballos</option><option>transferencia caballos</option><option>Mercado Pago</option><option>Cuenta Galicia</option><option>Cuenta corriente</option><option>CC SAN VICENTE</option><option>CC MACRO</option>
         </select>
       </div>
       <div class="field"><label>Forma de pago</label>
@@ -2951,7 +2951,7 @@ async function hacerBackupSiCorresponde(){
 // ═══════════════════════════════════════════════════════════════
 
 // Métodos que son cuentas (con saldo: ingreso - gasto)
-const METODOS_CUENTA=['Efectivo','Transferencia','Mercado Pago','Cuenta corriente','Cuenta Galicia','CC SAN VICENTE','CC MACRO','efectivo caballos'];
+const METODOS_CUENTA=['Efectivo','Transferencia','Mercado Pago','Cuenta corriente','Cuenta Galicia','CC SAN VICENTE','CC MACRO','efectivo caballos','transferencia caballos'];
 // Métodos que son tarjetas de crédito (deuda)
 const METODOS_TARJETA=['TC American','TC Visa','TC Mastercard Carlos','TC Visa Carlos'];
 
