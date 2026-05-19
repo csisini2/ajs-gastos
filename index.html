@@ -2953,30 +2953,35 @@ async function hacerBackupSiCorresponde(){
   const hoy=today();
   const backupKey='ajs_backup_'+hoy;
   if(localStorage.getItem(backupKey)) return; // ya se hizo hoy
+  // marcar ANTES de empezar para que no se dispare otra vez si tarda
+  localStorage.setItem(backupKey,'1');
   try{
-    // guardar backup de hoy
+    // guardar backup de hoy (solo movimientos)
     const snap=await get(movRef);
     const datos={};
     snap.forEach(c=>{ datos[c.key]=c.val(); });
     await set(ref(db,'backups/'+hoy),{fecha:hoy,ts:Date.now(),movimientos:datos});
-    localStorage.setItem(backupKey,'1');
     console.log('✓ Backup guardado:',hoy);
 
-    // limpiar backups con más de 30 días — solo borra copias, nunca los datos reales
-    const snapBackups=await get(ref(db,'backups'));
-    if(snapBackups.exists()){
+    // limpiar backups de más de 30 días.
+    // Leemos solo la lista de fechas con shallow=true (NO descarga el contenido,
+    // solo las claves), así no baja copias enteras de la base.
+    const resp=await fetch(`https://ajs-gastos-default-rtdb.firebaseio.com/backups.json?shallow=true&auth=${await auth.currentUser.getIdToken()}`);
+    const fechas=await resp.json();
+    if(fechas&&typeof fechas==='object'){
       const limite=new Date();
       limite.setDate(limite.getDate()-30);
       const limiteStr=limite.toISOString().slice(0,10);
-      const borrar=[];
-      snapBackups.forEach(c=>{ if(c.key<limiteStr){ borrar.push(c.key); } });
-      for(const fecha of borrar){
-        await remove(ref(db,'backups/'+fecha));
-        console.log('🗑 Backup viejo eliminado:',fecha);
+      for(const fecha of Object.keys(fechas)){
+        if(fecha<limiteStr){
+          await remove(ref(db,'backups/'+fecha));
+          console.log('🗑 Backup viejo eliminado:',fecha);
+        }
       }
     }
   }catch(e){
     console.warn('Backup automático falló:',e);
+    localStorage.removeItem(backupKey); // permitir reintento
   }
 }
 
