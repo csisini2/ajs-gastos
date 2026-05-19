@@ -1325,7 +1325,7 @@ tr:hover td{background:var(--bg3)}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, push, set, get, onValue, onChildAdded, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, push as _fbPushSDK, set as _fbSetSDK, get, onValue, onChildAdded, remove as _fbRemoveSDK, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 // APP PRINCIPAL - AJS GASTOS
@@ -1353,6 +1353,35 @@ const cfgMaq = {
 const appGastos = initializeApp(cfgGastos);
 const appMaq = initializeApp(cfgMaq,'maquinaria');
 const db = getDatabase(appGastos);
+
+// Extrae la ruta (ej: "movimientos/-Oxxxx") de un objeto ref de Firebase
+function rutaDeRef(r){
+  try{
+    // r.toString() devuelve la URL completa: https://...firebaseio.com/ruta
+    const s=(typeof r==='string')?r:r.toString();
+    const m=s.match(/firebaseio\.com\/(.*)$/);
+    return m?decodeURIComponent(m[1]):'';
+  }catch(e){ return ''; }
+}
+
+// Wrappers: mismas firmas que Firebase SDK pero por HTTPS (sin websocket).
+// Si la ruta no se puede extraer, cae al SDK original como respaldo.
+async function push(r,datos){
+  const ruta=rutaDeRef(r);
+  if(!ruta) return _fbPushSDK(r,datos);
+  const key=await fbPush(ruta,datos);
+  return { key };
+}
+async function set(r,datos){
+  const ruta=rutaDeRef(r);
+  if(!ruta) return _fbSetSDK(r,datos);
+  return fbSet(ruta,datos);
+}
+async function remove(r){
+  const ruta=rutaDeRef(r);
+  if(!ruta) return _fbRemoveSDK(r);
+  return fbRemove(ruta);
+}
 
 // AUTENTICACIÓN
 const auth = getAuth(appGastos);
@@ -1434,6 +1463,42 @@ onAuthStateChanged(auth, user => {
 
 // Recarga completa de todas las colecciones con get() — se llama cuando
 // la sesión se confirma (incluido al recargar la página o autocompletar)
+// ── ESCRITURA POR HTTPS (REST API) ──────────────────────────────
+// Igual que la lectura: evita el websocket de Firebase que algunas redes
+// bloquean. push/set/remove por HTTPS son instantáneos donde el websocket
+// se cuelga. Devuelven cuando el dato ya está guardado en el servidor.
+const FB_BASE='https://ajs-gastos-default-rtdb.firebaseio.com';
+
+async function fbPush(ruta,datos){
+  const token=await auth.currentUser.getIdToken();
+  // serverTimestamp() no funciona por REST; lo reemplazamos por la hora actual
+  const payload=JSON.parse(JSON.stringify(datos,(k,v)=>(v&&v['.sv']==='timestamp')?Date.now():v));
+  if(payload.ts==null) payload.ts=Date.now();
+  const r=await fetch(`${FB_BASE}/${ruta}.json?auth=${token}`,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+  });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const j=await r.json();
+  return j.name; // la key generada
+}
+
+async function fbSet(ruta,datos){
+  const token=await auth.currentUser.getIdToken();
+  const payload=JSON.parse(JSON.stringify(datos,(k,v)=>(v&&v['.sv']==='timestamp')?Date.now():v));
+  const r=await fetch(`${FB_BASE}/${ruta}.json?auth=${token}`,{
+    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+  });
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return true;
+}
+
+async function fbRemove(ruta){
+  const token=await auth.currentUser.getIdToken();
+  const r=await fetch(`${FB_BASE}/${ruta}.json?auth=${token}`,{method:'DELETE'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return true;
+}
+
 async function recargarTodo(){
   // Usamos la REST API de Firebase (HTTPS puro, sin websocket).
   // Esto evita la demora cuando la red bloquea el websocket de Firebase:
@@ -1765,23 +1830,9 @@ window.guardar = async () => {
   const btn=document.getElementById('btn-guardar');
   btn.textContent='Guardando...'; btn.disabled=true;
   try{
-    const result=await push(movRef,rec);
-    // recarga manual por si el listener onValue no se dispara
-    const snap=await get(movRef);
-    registros=[];
-    snap.forEach(c=>{ registros.push({...c.val(),key:c.key}); });
-    registros.sort((a,b)=>{
-      const df=(b.fecha||'').localeCompare(a.fecha||'');
-      if(df!==0) return df;
-      const ta=typeof b.ts==='number'?b.ts:0;
-      const tb=typeof a.ts==='number'?a.ts:0;
-      return ta-tb;
-    });
-    syncLbl.textContent=`en línea · ${registros.length} registros`;
-    updateBalance();
-    const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-    const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock};
-    if(fn[id]) fn[id]();
+    await push(movRef,rec);
+    // recarga por HTTPS (rápida, sin websocket)
+    await recargarTodo();
     showAlert('alert-nuevo','✓ Guardado correctamente','ok');
     limpiar();
   }catch(e){
