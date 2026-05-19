@@ -1435,15 +1435,23 @@ onAuthStateChanged(auth, user => {
 // Recarga completa de todas las colecciones con get() — se llama cuando
 // la sesión se confirma (incluido al recargar la página o autocompletar)
 async function recargarTodo(){
-  // timeout de seguridad: si algo se cuelga, no dejamos la app trabada para siempre
-  const conTimeout=(promesa,ms=15000)=>Promise.race([
-    promesa,
-    new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))
-  ]);
+  // Usamos la REST API de Firebase (HTTPS puro, sin websocket).
+  // Esto evita la demora cuando la red bloquea el websocket de Firebase:
+  // el websocket sigue conectándose en segundo plano para tiempo real,
+  // pero la carga inicial es instantánea por HTTPS normal.
+  const BASE='https://ajs-gastos-default-rtdb.firebaseio.com';
   try{
-    // 1) PRIMERO los movimientos (lo más importante) y mostramos enseguida
-    const mSnap=await conTimeout(get(movRef));
-    registros=[]; mSnap.forEach(c=>{ registros.push({...c.val(),key:c.key}); });
+    const token=await auth.currentUser.getIdToken();
+    const traer=async(ruta)=>{
+      const r=await fetch(`${BASE}/${ruta}.json?auth=${token}`);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return await r.json();
+    };
+    const objAArray=o=> o?Object.entries(o).map(([k,v])=>({...v,key:k})):[];
+
+    // 1) Movimientos primero (lo más importante) y mostrar enseguida
+    const mov=await traer('movimientos');
+    registros=objAArray(mov);
     registros.sort((a,b)=>{
       const df=(b.fecha||'').localeCompare(a.fecha||'');
       if(df!==0) return df;
@@ -1454,39 +1462,41 @@ async function recargarTodo(){
     syncDot.classList.add('online'); syncDot.style.background='';
     syncLbl.textContent=`en línea · ${registros.length} registros`;
     if(typeof updateBalance==='function') updateBalance();
-    // mostrar el panel activo YA, aunque el resto de datos no haya llegado
     const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
     const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock,cosecha:renderRemitos,liquidaciones:renderLiquidaciones,empleados:renderEmpleados,insumos:renderInsumos};
     if(fn[id]) fn[id]();
 
-    // 2) El resto de colecciones en paralelo, sin bloquear. Cada una se procesa
-    // por su cuenta; si una falla no afecta a las demás.
-    const cargar=(ref,proc)=>conTimeout(get(ref)).then(proc).catch(e=>console.warn('No se pudo cargar una colección:',e));
-    await Promise.allSettled([
-      cargar(remitosRef,s=>{ remitos=[]; s.forEach(c=>{ remitos.push({...c.val(),key:c.key}); }); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); }),
-      cargar(liqRef,s=>{ liquidaciones=[]; s.forEach(c=>{ liquidaciones.push({...c.val(),key:c.key}); }); liquidaciones.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')); }),
-      cargar(empRef,s=>{ empleados=[]; s.forEach(c=>{ empleados.push({...c.val(),key:c.key}); }); }),
-      cargar(cabRef,s=>{ caballos=[]; s.forEach(c=>{ caballos.push({...c.val(),key:c.key}); }); }),
-      cargar(insRef,s=>{ insumos=[]; s.forEach(c=>{ insumos.push({...c.val(),key:c.key}); }); }),
-      cargar(adelantosRef,s=>{ adelantos=[]; s.forEach(c=>{ adelantos.push({...c.val(),key:c.key}); }); }),
-      cargar(tarjetasRef,s=>{ tarjetas={}; s.forEach(c=>{ const v=c.val(); tarjetas[v.nombre]=v; }); }),
-      cargar(notasRef,s=>{ notas=[]; s.forEach(c=>{ notas.push({...c.val(),key:c.key}); }); }),
-      cargar(fijosRef,s=>{ fijos=[]; s.forEach(c=>{ fijos.push({...c.val(),key:c.key}); }); }),
-      cargar(cuotasRef,s=>{ cuotas=[]; s.forEach(c=>{ cuotas.push({...c.val(),key:c.key}); }); }),
-      cargar(liqAzucarRef,s=>{ liqAzucar=[]; s.forEach(c=>{ liqAzucar.push({...c.val(),key:c.key}); }); }),
-      cargar(retirosRef,s=>{ retiros=[]; s.forEach(c=>{ retiros.push({...c.val(),key:c.key}); }); }),
-      cargar(descBolsasRef,s=>{ descBolsas=[]; s.forEach(c=>{ descBolsas.push({...c.val(),key:c.key}); }); }),
-      cargar(futuroRef,s=>{ stockFuturo=[]; s.forEach(c=>{ stockFuturo.push({...c.val(),key:c.key}); }); })
+    // 2) El resto en paralelo por HTTPS, sin bloquear
+    const [re,li,em,ca,ins,ad,ta,no,fi,cu,la,rt,db2,sf]=await Promise.all([
+      traer('remitos').catch(()=>null), traer('liquidaciones').catch(()=>null),
+      traer('empleados').catch(()=>null), traer('caballos').catch(()=>null),
+      traer('insumos').catch(()=>null), traer('adelantos').catch(()=>null),
+      traer('tarjetas').catch(()=>null), traer('notas').catch(()=>null),
+      traer('fijos').catch(()=>null), traer('cuotas').catch(()=>null),
+      traer('liqAzucar').catch(()=>null), traer('retiros').catch(()=>null),
+      traer('descBolsas').catch(()=>null), traer('stockFuturo').catch(()=>null)
     ]);
+    remitos=objAArray(re); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    liquidaciones=objAArray(li); liquidaciones.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+    empleados=objAArray(em);
+    caballos=objAArray(ca);
+    insumos=objAArray(ins);
+    adelantos=objAArray(ad);
+    tarjetas={}; if(ta) Object.values(ta).forEach(v=>{ tarjetas[v.nombre]=v; });
+    notas=objAArray(no);
+    fijos=objAArray(fi);
+    cuotas=objAArray(cu);
+    liqAzucar=objAArray(la);
+    retiros=objAArray(rt);
+    descBolsas=objAArray(db2);
+    stockFuturo=objAArray(sf);
 
-    // re-render con todos los datos ya cargados
     if(typeof updateBalance==='function') updateBalance();
     if(fn[id]) fn[id]();
     if(typeof generarRecurrentes==='function') generarRecurrentes();
   }catch(e){
     console.warn('Error en recargarTodo:',e);
     if(registros.length){
-      // si al menos los movimientos cargaron, no marcamos error
       syncDot.classList.add('online'); syncDot.style.background='';
       syncLbl.textContent=`en línea · ${registros.length} registros`;
     }else{
