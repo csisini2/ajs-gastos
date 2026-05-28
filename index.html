@@ -916,6 +916,43 @@ tr:hover td{background:var(--bg3)}
     </div>
     <div id="futuro-list" style="margin-top:12px"></div>
   </div>
+
+  <!-- VENTAS DE AZÚCAR -->
+  <div class="card">
+    <div id="alert-venta-az"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div class="card-title" style="margin:0">🛒 Ventas de azúcar</div>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('input-excel-ventas').click()">⬇ Importar ventas Excel</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Cada venta resta del stock disponible. Independiente del historial de gastos.</div>
+    <div class="form-grid">
+      <div class="field"><label>Fecha</label><input type="date" id="vaz-fecha"></div>
+      <div class="field"><label>Cantidad de bolsas</label><input type="number" id="vaz-bolsas" placeholder="ej: 100"></div>
+      <div class="field"><label>Precio por bolsa ($)</label><input type="number" id="vaz-precio" placeholder="ej: 22000"></div>
+      <div class="field"><label>Monto total ($)</label><input type="number" id="vaz-monto" placeholder="se calcula solo"></div>
+      <div class="field"><label>Forma de cobro</label>
+        <select id="vaz-forma">
+          <option value="EFECTIVO">Efectivo</option>
+          <option value="TRANSFERENCIA">Transferencia</option>
+          <option value="E-CHEQ">E-Cheque</option>
+          <option value="SAN VICENTE">San Vicente</option>
+          <option value="OTRO">Otro</option>
+        </select>
+      </div>
+      <div class="field"><label>Comprador / Destino</label><input type="text" id="vaz-comprador" placeholder="ej: Pipo, Alfa, Gastos"></div>
+      <div class="field f-wide"><label>Observaciones</label><input type="text" id="vaz-obs" placeholder=""></div>
+    </div>
+    <div class="row-btns">
+      <button class="btn btn-primary" onclick="guardarVentaAzucar()">Guardar venta</button>
+      <button class="btn btn-ghost" onclick="limpiarVentaAzucar()">Limpiar</button>
+    </div>
+  </div>
+
+  <!-- LISTA DE VENTAS -->
+  <div class="card">
+    <div class="card-title">Historial de ventas</div>
+    <div id="ventas-az-list"></div>
+  </div>
 </div>
 
 
@@ -1136,6 +1173,39 @@ tr:hover td{background:var(--bg3)}
     <div class="modal-btns">
       <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-edit-futuro')">Cancelar</button>
       <button class="btn btn-sm btn-primary" id="modal-edit-futuro-btn">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR VENTA AZÚCAR -->
+<div class="modal-overlay" id="modal-edit-venta-az">
+  <div class="modal">
+    <div class="modal-title">Editar venta de azúcar</div>
+    <div id="edit-venta-az-alert"></div>
+    <div class="fg">
+      <div class="field"><label>Fecha</label><input type="date" id="eva-fecha"></div>
+      <div class="field"><label>Bolsas</label><input type="number" id="eva-bolsas"></div>
+    </div>
+    <div class="fg">
+      <div class="field"><label>Precio por bolsa ($)</label><input type="number" id="eva-precio"></div>
+      <div class="field"><label>Monto total ($)</label><input type="number" id="eva-monto"></div>
+    </div>
+    <div class="fg">
+      <div class="field"><label>Forma de cobro</label>
+        <select id="eva-forma">
+          <option value="EFECTIVO">Efectivo</option>
+          <option value="TRANSFERENCIA">Transferencia</option>
+          <option value="E-CHEQ">E-Cheque</option>
+          <option value="SAN VICENTE">San Vicente</option>
+          <option value="OTRO">Otro</option>
+        </select>
+      </div>
+      <div class="field"><label>Comprador</label><input type="text" id="eva-comprador"></div>
+    </div>
+    <div class="field"><label>Observaciones</label><input type="text" id="eva-obs"></div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-edit-venta-az')">Cancelar</button>
+      <button class="btn btn-sm btn-primary" id="modal-edit-venta-az-btn">Guardar cambios</button>
     </div>
   </div>
 </div>
@@ -1535,14 +1605,15 @@ async function recargarTodo(){
     if(fn[id]) fn[id]();
 
     // 2) El resto en paralelo por HTTPS, sin bloquear
-    const [re,li,em,ca,ins,ad,ta,no,fi,cu,la,rt,db2,sf]=await Promise.all([
+    const [re,li,em,ca,ins,ad,ta,no,fi,cu,la,rt,db2,sf,va]=await Promise.all([
       traer('remitos').catch(()=>null), traer('liquidaciones').catch(()=>null),
       traer('empleados').catch(()=>null), traer('caballos').catch(()=>null),
       traer('insumos').catch(()=>null), traer('adelantos').catch(()=>null),
       traer('tarjetas').catch(()=>null), traer('notas').catch(()=>null),
       traer('fijos').catch(()=>null), traer('cuotas').catch(()=>null),
       traer('liqAzucar').catch(()=>null), traer('retiros').catch(()=>null),
-      traer('descBolsas').catch(()=>null), traer('stockFuturo').catch(()=>null)
+      traer('descBolsas').catch(()=>null), traer('stockFuturo').catch(()=>null),
+      traer('ventasAzucar').catch(()=>null)
     ]);
     remitos=objAArray(re); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
     liquidaciones=objAArray(li); liquidaciones.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
@@ -1558,6 +1629,7 @@ async function recargarTodo(){
     retiros=objAArray(rt);
     descBolsas=objAArray(db2);
     stockFuturo=objAArray(sf);
+    ventasAzucar=objAArray(va);
 
     if(typeof updateBalance==='function') updateBalance();
     if(fn[id]) fn[id]();
@@ -1594,12 +1666,13 @@ const liqAzucarRef = ref(db,'liqAzucar');
 const retirosRef = ref(db,'retiros');
 const descBolsasRef = ref(db,'descBolsas');
 const futuroRef = ref(db,'stockFuturo');
+const ventasAzucarRef = ref(db,'ventasAzucar');
 
 // STATE
 let registros=[], remitos=[], liquidaciones=[], empleados=[], caballos=[], insumos=[], adelantos=[];
 let maqGasoil=[], maqMant=[];
 let tarjetas={}, notas=[], fijos=[], cuotas=[];
-let liqAzucar=[], retiros=[], descBolsas=[], stockFuturo=[];
+let liqAzucar=[], retiros=[], descBolsas=[], stockFuturo=[], ventasAzucar=[];
 let histFiltro='todos', tipoActual='gasto', editKey=null, kilosKey=null, vistaHist='cards', notasFiltro='activas';
 
 // HELPERS
@@ -3718,10 +3791,8 @@ function calcularStockAzucar(){
   const totalRetirado=retiros.filter(r=>r.retirada==='SI').reduce((a,r)=>a+(r.cantidad||0),0);
   // Bolsas pendientes de retirar (retirada = NO)
   const pendienteRetiro=retiros.filter(r=>r.retirada==='NO').reduce((a,r)=>a+(r.cantidad||0),0);
-  // Bolsas vendidas (ingresos categoría "Venta de azúcar" con campo bolsas)
-  const totalVendido=getAllMovimientos()
-    .filter(r=>r.tipo==='ingreso'&&r.cat==='Venta de azúcar'&&r.bolsas)
-    .reduce((a,r)=>a+(parseInt(r.bolsas)||0),0);
+  // Bolsas vendidas — colección ventasAzucar (separada del historial)
+  const totalVendido=ventasAzucar.reduce((a,v)=>a+(parseInt(v.bolsas)||0),0);
   // Descuentos de bolsas (pagos en azúcar)
   const totalDescuentos=descBolsas.reduce((a,d)=>a+(d.cantidad||0),0);
   // Stock disponible
@@ -3776,9 +3847,7 @@ function renderStockResumen(){
     </div>`;
 
   // ── DETALLE VENTA POR VENTA ──
-  const ventas=getAllMovimientos()
-    .filter(r=>r.tipo==='ingreso'&&r.cat==='Venta de azúcar'&&r.bolsas)
-    .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const ventas=ventasAzucar.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   let ventasHTML='';
   if(ventas.length){
     let acumBolsas=ventas.reduce((a,v)=>a+(parseInt(v.bolsas)||0),0);
@@ -4100,12 +4169,126 @@ window.abrirEditarFuturo=key=>{
   document.getElementById('modal-edit-futuro').classList.add('show');
 };
 
+// ── VENTAS DE AZÚCAR ────────────────────────────────────────────
+// Auto-calcular monto cuando cambia bolsas o precio
+function initVentaAzucarListeners(){
+  const bolsasEl=document.getElementById('vaz-bolsas');
+  const precioEl=document.getElementById('vaz-precio');
+  const montoEl=document.getElementById('vaz-monto');
+  const calc=()=>{
+    const b=parseInt(bolsasEl.value)||0;
+    const p=parseFloat(precioEl.value)||0;
+    if(b&&p) montoEl.value=b*p;
+  };
+  bolsasEl.addEventListener('input',calc);
+  precioEl.addEventListener('input',calc);
+}
+
+window.guardarVentaAzucar=async()=>{
+  const fecha=document.getElementById('vaz-fecha').value||today();
+  const bolsas=parseInt(document.getElementById('vaz-bolsas').value)||0;
+  const precio=parseFloat(document.getElementById('vaz-precio').value)||0;
+  const monto=parseFloat(document.getElementById('vaz-monto').value)||0;
+  const forma=document.getElementById('vaz-forma').value;
+  const comprador=document.getElementById('vaz-comprador').value.trim();
+  const obs=document.getElementById('vaz-obs').value.trim();
+  if(!bolsas||!monto){ showAlert('alert-venta-az','Completá bolsas y monto','err'); return; }
+  try{
+    await fbPush('ventasAzucar',{fecha,bolsas,precio,monto,forma,comprador,obs,ts:Date.now()});
+    showAlert('alert-venta-az','✓ Venta guardada','ok');
+    limpiarVentaAzucar();
+    await recargarTodo();
+  }catch(e){ showAlert('alert-venta-az','Error al guardar','err'); }
+};
+
+window.limpiarVentaAzucar=()=>{
+  ['vaz-fecha','vaz-bolsas','vaz-precio','vaz-monto','vaz-comprador','vaz-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('vaz-fecha').value=today();
+};
+
+window.eliminarVentaAzucar=key=>{
+  confirmDelete(async()=>{
+    await fbRemove('ventasAzucar/'+key);
+    await recargarTodo();
+  });
+};
+
+window.abrirEditarVentaAz=key=>{
+  const v=ventasAzucar.find(x=>x.key===key); if(!v) return;
+  document.getElementById('eva-fecha').value=v.fecha||'';
+  document.getElementById('eva-bolsas').value=v.bolsas||0;
+  document.getElementById('eva-precio').value=v.precio||0;
+  document.getElementById('eva-monto').value=v.monto||0;
+  document.getElementById('eva-forma').value=v.forma||'EFECTIVO';
+  document.getElementById('eva-comprador').value=v.comprador||'';
+  document.getElementById('eva-obs').value=v.obs||'';
+  document.getElementById('modal-edit-venta-az-btn').onclick=async()=>{
+    const upd={
+      fecha:document.getElementById('eva-fecha').value||today(),
+      bolsas:parseInt(document.getElementById('eva-bolsas').value)||0,
+      precio:parseFloat(document.getElementById('eva-precio').value)||0,
+      monto:parseFloat(document.getElementById('eva-monto').value)||0,
+      forma:document.getElementById('eva-forma').value,
+      comprador:document.getElementById('eva-comprador').value.trim(),
+      obs:document.getElementById('eva-obs').value.trim(),
+    };
+    if(!upd.bolsas||!upd.monto){ showAlert('edit-venta-az-alert','Completá bolsas y monto','err'); return; }
+    try{
+      await fbSet('ventasAzucar/'+key,{...v,...upd,ts:Date.now()});
+      showAlert('edit-venta-az-alert','✓ Guardado','ok');
+      await recargarTodo();
+      setTimeout(()=>closeModal('modal-edit-venta-az'),800);
+    }catch(e){ showAlert('edit-venta-az-alert','Error al guardar','err'); }
+  };
+  document.getElementById('modal-edit-venta-az').classList.add('show');
+};
+
+function renderVentasAzucar(){
+  const cont=document.getElementById('ventas-az-list');
+  if(!ventasAzucar.length){ cont.innerHTML='<div class="empty"><div class="empty-icon">🛒</div>Sin ventas cargadas</div>'; return; }
+  const data=ventasAzucar.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const totalBolsas=data.reduce((a,v)=>a+(parseInt(v.bolsas)||0),0);
+  const totalMonto=data.reduce((a,v)=>a+(v.monto||0),0);
+  cont.innerHTML=`
+    <div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--border);margin-bottom:8px;font-size:13px;color:var(--text3)">
+      <span>${data.length} ventas · ${totalBolsas} bolsas total</span>
+      <span style="font-family:'DM Mono',monospace;color:var(--green)">+${fmt(totalMonto)}</span>
+    </div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="color:var(--text3);font-size:10px;text-transform:uppercase">
+        <th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--border)">Fecha</th>
+        <th style="text-align:right;padding:5px 6px;border-bottom:1px solid var(--border)">Bolsas</th>
+        <th style="text-align:right;padding:5px 6px;border-bottom:1px solid var(--border)">$/bolsa</th>
+        <th style="text-align:right;padding:5px 6px;border-bottom:1px solid var(--border)">Monto</th>
+        <th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--border)">Cobro</th>
+        <th style="text-align:left;padding:5px 6px;border-bottom:1px solid var(--border)">Comprador</th>
+        <th style="padding:5px 6px;border-bottom:1px solid var(--border)"></th>
+      </tr>
+      ${data.map(v=>{
+        const precioBolsa=v.precio||(v.bolsas?Math.round(v.monto/v.bolsas):0);
+        return`<tr>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;color:var(--text3);font-size:11px">${v.fecha}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace;font-weight:500">${v.bolsas}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace;color:var(--text3)">${fmt(precioBolsa)}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${fmt(v.monto)}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border);font-size:11px">${v.forma||'—'}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text3)">${v.comprador||v.obs||'—'}</td>
+          <td style="padding:5px 6px;border-bottom:1px solid var(--border);white-space:nowrap">
+            <button class="btn-edit btn-sm" onclick="abrirEditarVentaAz('${v.key}')">✎</button>
+            <button class="btn-del btn-sm" onclick="eliminarVentaAzucar('${v.key}')">✕</button>
+          </td>
+        </tr>`;
+      }).join('')}
+    </table></div>`;
+}
+
 function renderStock(){
   renderStockResumen();
   renderLiqAzucarList();
   renderRetiros();
   renderDescBolsasList();
   renderFuturoList();
+  renderVentasAzucar();
 }
 
 // ── IMPORTAR EXCEL DE RETIROS/LIQUIDACIÓN ──────────────────────
@@ -4158,77 +4341,42 @@ window.importarExcelRetiros=async(input)=>{
 window.importarExcelVentas=async(input)=>{
   const file=input.files[0]; if(!file) return;
   input.value='';
-  showAlert('alert-liqaz','Leyendo Excel de ventas...','ok');
+  if(ventasAzucar.length>0){
+    if(!confirm(`Ya hay ${ventasAzucar.length} ventas cargadas. Si continuás se AGREGAN (puede duplicar). ¿Seguro?`)) return;
+  }
+  showAlert('alert-venta-az','Leyendo Excel de ventas...','ok');
   try{
     const data=await file.arrayBuffer();
     const wb=XLSX.read(data,{type:'array',cellDates:true});
     const ws=wb.Sheets[wb.SheetNames[0]];
     const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'yyyy-mm-dd'});
-
-    // Mapeo de tipo de venta a método de pago de la app
-    const metodoMap={
-      'EFECTIVO':'efectivo caballos',
-      'TRANSFERENCIA':'transferencia caballos',
-      'GALICIA':'Cuenta Galicia',
-      'E-CHEQ':'Cuenta Galicia',
-      'SAN VICENTE':'CC SAN VICENTE',
-    };
-
-    let cargados=0, errores=0, saltados=0;
-    for(let i=3;i<rows.length;i++){ // empieza en fila 4 (índice 3), saltando título y encabezados
+    let cargados=0, saltados=0;
+    for(let i=3;i<rows.length;i++){
       const r=rows[i];
       if(!r||!r.length) continue;
-      // fila de datos: columna B=fecha, C=cantidad, D=precio, E=ingreso, G=tipo, H=obs
       const fecha=r[1]?String(r[1]).slice(0,10):'';
-      const cantidad=parseInt(r[2])||0;
+      const bolsas=parseInt(r[2])||0;
       const precio=parseFloat(r[3])||0;
       const monto=parseFloat(r[4])||0;
-      const tipoVenta=String(r[6]||'').trim().toUpperCase();
+      const forma=String(r[6]||'').trim().toUpperCase()||'EFECTIVO';
       const obs=String(r[7]||'').trim();
-
-      if(!fecha||!cantidad||!monto) { saltados++; continue; }
-      // ignorar filas de totales
+      if(!fecha||!bolsas||!monto){ saltados++; continue; }
       if(String(r[0]||'').toUpperCase().includes('TOTAL')) continue;
-
-      // método de pago: buscar en el mapa o usar el tipo directamente
-      const metodoRaw=tipoVenta.split(' ')[0];
-      const metodo=metodoMap[metodoRaw]||metodoMap[tipoVenta]||'efectivo caballos';
-      const precioPorBolsa=precio||Math.round(monto/cantidad);
-
-      try{
-        await fbPush('movimientos',{
-          tipo:'ingreso',
-          fecha,
-          detalle:`Venta azúcar ${cantidad} bolsas${obs?' — '+obs:''}`,
-          resp:'CARLOS',
-          unidad:'U4',
-          cat:'Venta de azúcar',
-          subdet:tipoVenta,
-          zafra:'2025',
-          monto,
-          bolsas:cantidad,
-          metodo,
-          forma:tipoVenta.includes('CHEQ')?'Cheque':tipoVenta.includes('TRANSFERENCIA')||tipoVenta==='GALICIA'?'Transferencia':'Efectivo',
-          estado:'Cobrado',
-          prov:'',
-          obs:`${obs} | $${precioPorBolsa.toLocaleString('es-AR')}/bolsa | importado de Excel`,
-          chequeVenc:'',
-          ts:Date.now()
-        });
-        cargados++;
-      }catch(e){ errores++; console.warn('Error fila',i,e); }
+      await fbPush('ventasAzucar',{fecha,bolsas,precio,monto,forma,comprador:obs,obs:'',ts:Date.now()});
+      cargados++;
     }
-    showAlert('alert-liqaz',`✓ Importadas ${cargados} ventas de azúcar${errores?` (${errores} errores)`:''}${saltados?` (${saltados} filas vacías salteadas)`:''}. Recargá para ver los datos actualizados.`,'ok');
+    showAlert('alert-venta-az',`✓ Importadas ${cargados} ventas${saltados?` (${saltados} filas vacías salteadas)`:''}. Recargando...`,'ok');
     await recargarTodo();
   }catch(e){
-    showAlert('alert-liqaz','Error al leer el Excel de ventas: '+e.message,'err');
+    showAlert('alert-venta-az','Error al leer el Excel: '+e.message,'err');
+    console.error(e);
   }
 };
 
 // ── EXPORTAR STOCK A EXCEL ──────────────────────────────────────
 window.exportarStockExcel=()=>{
   const s=calcularStockAzucar();
-  const ventas=getAllMovimientos().filter(r=>r.tipo==='ingreso'&&r.cat==='Venta de azúcar'&&r.bolsas);
+  const ventas=ventasAzucar.slice();
   // armar CSV (Excel lo abre directo)
   let csv='AJS - STOCK DE AZUCAR\n';
   csv+=`Generado,${today()}\n\n`;
@@ -4275,8 +4423,7 @@ window.exportarStockExcel=()=>{
 // ── EXPORTAR STOCK A PDF ────────────────────────────────────────
 window.exportarStockPDF=()=>{
   const s=calcularStockAzucar();
-  const ventas=getAllMovimientos().filter(r=>r.tipo==='ingreso'&&r.cat==='Venta de azúcar'&&r.bolsas)
-    .slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  const ventas=ventasAzucar.slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
   const retOrden=retiros.slice().sort((a,b)=>(a.fechaR||a.fechaA||'').localeCompare(b.fechaR||b.fechaA||''));
   const kg=n=>(n*50).toLocaleString('es-AR');
 
@@ -4362,6 +4509,10 @@ onValue(futuroRef,snap=>{
   stockFuturo=[]; snap.forEach(c=>{ stockFuturo.push({...c.val(),key:c.key}); });
   if(document.getElementById('panel-stock').classList.contains('active')) renderStock();
 });
+onValue(ventasAzucarRef,snap=>{
+  ventasAzucar=[]; snap.forEach(c=>{ ventasAzucar.push({...c.val(),key:c.key}); });
+  if(document.getElementById('panel-stock').classList.contains('active')) renderStock();
+});
 
 
 // INIT
@@ -4374,6 +4525,10 @@ document.getElementById('ad-fecha').value=today();
 // Listeners para importar Excel (más confiables que onchange inline)
 document.getElementById('input-excel-retiros').addEventListener('change',function(){ if(this.files[0]) importarExcelRetiros(this); });
 document.getElementById('input-excel-ventas').addEventListener('change',function(){ if(this.files[0]) importarExcelVentas(this); });
+// Auto-cálculo monto en formulario de ventas
+initVentaAzucarListeners();
+// Fecha por defecto en ventas
+document.getElementById('vaz-fecha').value=today();
 
 // backup automático: una sola vez, 10 segundos después de cargar la app
 setTimeout(()=>hacerBackupSiCorresponde(),10000);
