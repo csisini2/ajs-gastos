@@ -821,14 +821,10 @@ tr:hover td{background:var(--bg3)}
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="exportarStockExcel()">📊 Excel</button>
         <button class="btn btn-ghost btn-sm" onclick="exportarStockPDF()">📄 PDF</button>
-        <label class="btn btn-ghost btn-sm" style="cursor:pointer" title="Subí el Excel de retiros/liquidación">
-          ⬇ Importar retiros Excel
-          <input type="file" id="input-excel-retiros" accept=".xlsx,.xls" style="display:none" onchange="importarExcelRetiros(this)">
-        </label>
-        <label class="btn btn-ghost btn-sm" style="cursor:pointer" title="Subí el Excel de ventas de azúcar">
-          ⬇ Importar ventas Excel
-          <input type="file" id="input-excel-ventas" accept=".xlsx,.xls" style="display:none" onchange="importarExcelVentas(this)">
-        </label>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('input-excel-retiros').click()">⬇ Importar retiros Excel</button>
+        <input type="file" id="input-excel-retiros" accept=".xlsx,.xls" style="display:none">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('input-excel-ventas').click()">⬇ Importar ventas Excel</button>
+        <input type="file" id="input-excel-ventas" accept=".xlsx,.xls" style="display:none">
       </div>
     </div>
     <div id="stock-resumen"></div>
@@ -4374,6 +4370,10 @@ document.getElementById('r-fecha').value=today();
 document.getElementById('l-fecha').value=today();
 document.getElementById('ins-fecha').value=today();
 document.getElementById('ad-fecha').value=today();
+
+// Listeners para importar Excel (más confiables que onchange inline)
+document.getElementById('input-excel-retiros').addEventListener('change',function(){ if(this.files[0]) importarExcelRetiros(this); });
+document.getElementById('input-excel-ventas').addEventListener('change',function(){ if(this.files[0]) importarExcelVentas(this); });
 
 // backup automático: una sola vez, 10 segundos después de cargar la app
 setTimeout(()=>hacerBackupSiCorresponde(),10000);
