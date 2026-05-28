@@ -821,7 +821,14 @@ tr:hover td{background:var(--bg3)}
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="exportarStockExcel()">📊 Excel</button>
         <button class="btn btn-ghost btn-sm" onclick="exportarStockPDF()">📄 PDF</button>
-        <button class="btn btn-ghost btn-sm" onclick="importarDatos2025()" id="btn-importar-2025">⬇ Importar datos 2025</button>
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer" title="Subí el Excel de retiros/liquidación">
+          ⬇ Importar retiros Excel
+          <input type="file" id="input-excel-retiros" accept=".xlsx,.xls" style="display:none" onchange="importarExcelRetiros(this)">
+        </label>
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer" title="Subí el Excel de ventas de azúcar">
+          ⬇ Importar ventas Excel
+          <input type="file" id="input-excel-ventas" accept=".xlsx,.xls" style="display:none" onchange="importarExcelVentas(this)">
+        </label>
       </div>
     </div>
     <div id="stock-resumen"></div>
@@ -4105,54 +4112,120 @@ function renderStock(){
   renderFuturoList();
 }
 
-// ── IMPORTAR DATOS 2025 (carga única desde el Excel) ────────────
-const RETIROS_2025=[
-  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"1000128384",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-08-16",fechaR:"2025-08-16",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"1000128384",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-08-19",fechaR:"2025-08-19",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-08-25",fechaR:"2025-08-25",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"1000128416",cantidad:600,retirada:"SI",recibio:"",fechaA:"",fechaR:"",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"1000128417",cantidad:600,retirada:"NO",recibio:"",fechaA:"",fechaR:"",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-02",fechaR:"2025-09-03",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-06",fechaR:"2025-09-06",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-11",fechaR:"2025-09-11",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-15",fechaR:"2025-09-16",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-22",fechaR:"2025-09-20",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-27",fechaR:"2025-09-27",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-09-29",fechaR:"2025-09-29",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-10-01",fechaR:"2025-10-01",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"1000128545",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-10-04",fechaR:"2025-10-04",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"1000128544",cantidad:600,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-10-09",fechaR:"2025-10-09",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"2",orden:"B2",cantidad:417,retirada:"SI",recibio:"SAN VICENTE",fechaA:"2025-10-25",fechaR:"2025-10-25",obs:""},
-  {ingenio:"INGENIO LA CORONA",linea:"1",orden:"",cantidad:112,retirada:"SI",recibio:"SAN VICENTE",fechaA:"",fechaR:"",obs:""}
-];
-
-window.importarDatos2025=async()=>{
-  if(!confirm('Esto va a cargar:\n• Liquidación 2025: B1 3712 + B2 5817 bolsas\n• Descuento: 204 bolsas a BRAGUE\n• 17 retiros del ingenio\n\n¿Continuar?')) return;
-  const btn=document.getElementById('btn-importar-2025');
-  btn.textContent='Importando...'; btn.disabled=true;
+// ── IMPORTAR EXCEL DE RETIROS/LIQUIDACIÓN ──────────────────────
+window.importarExcelRetiros=async(input)=>{
+  const file=input.files[0]; if(!file) return;
+  input.value=''; // resetear para poder volver a subir el mismo archivo
+  if(liqAzucar.length||retiros.length||descBolsas.length){
+    if(!confirm('⚠ Ya hay datos en el stock. Si continuás se AGREGAN (puede duplicar). ¿Seguro?')) return;
+  }
+  showAlert('alert-liqaz','Leyendo Excel...','ok');
   try{
-    // verificar si ya hay datos para no duplicar
-    if(liqAzucar.length||retiros.length||descBolsas.length){
-      if(!confirm('⚠ Ya hay datos cargados en el stock. Si continuás se van a AGREGAR los datos 2025 igual (puede duplicar). ¿Seguro?')){
-        btn.textContent='⬇ Importar datos 2025'; btn.disabled=false;
-        return;
-      }
+    const data=await file.arrayBuffer();
+    const wb=XLSX.read(data,{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'yyyy-mm-dd'});
+
+    let cargados=0, errores=0;
+    for(let i=1;i<rows.length;i++){
+      const r=rows[i];
+      if(!r||!r.length) continue;
+      // detectar fila de encabezado (si tiene texto como "INGENIO", "LINEA", etc.)
+      const primerCol=String(r[0]||'').toUpperCase();
+      if(primerCol.includes('INGENIO')||primerCol.includes('LINEA')||primerCol.includes('FECHA')) continue;
+      // detectar fila de totales
+      if(primerCol.includes('TOTAL')||primerCol.includes('SUMA')) continue;
+
+      const ingenio=String(r[0]||'').trim();
+      const linea=String(r[1]||'').trim();
+      const orden=String(r[2]||'').trim();
+      const cantidad=parseInt(r[3])||0;
+      const retirada=String(r[4]||'').trim().toUpperCase();
+      const recibio=String(r[5]||'').trim();
+      const fechaA=r[6]?String(r[6]).slice(0,10):'';
+      const fechaR=r[7]?String(r[7]).slice(0,10):'';
+
+      if(!ingenio||!cantidad) continue;
+      try{
+        await fbPush('retiros',{ingenio,linea,orden,cantidad,retirada:retirada||'NO',recibio,fechaA,fechaR,obs:'',fotoUrl:'',ts:Date.now()});
+        cargados++;
+      }catch(e){ errores++; }
     }
-    // 1) Liquidaciones
-    await push(liqAzucarRef,{zafra:'2025',linea:'B1',bolsas:3712,fecha:today(),ts:serverTimestamp()});
-    await push(liqAzucarRef,{zafra:'2025',linea:'B2',bolsas:5817,fecha:today(),ts:serverTimestamp()});
-    // 2) Descuento de Brague
-    await push(descBolsasRef,{cantidad:204,aQuien:'BRAGUE',fecha:'2025-10-31',obs:'Pago en azúcar por compra de caña',ts:serverTimestamp()});
-    // 3) Retiros
-    for(const r of RETIROS_2025){
-      await push(retirosRef,{...r,fotoUrl:'',ts:serverTimestamp()});
-    }
-    btn.textContent='✓ Importado';
-    showAlert('alert-liqaz','✓ Datos 2025 importados correctamente','ok');
-    setTimeout(()=>{ btn.textContent='⬇ Importar datos 2025'; btn.disabled=false; },3000);
+    showAlert('alert-liqaz',`✓ Importados ${cargados} retiros${errores?` (${errores} errores)`:''}. Acordate de cargar la liquidación (B1/B2) manualmente si no está en el Excel.`,'ok');
+    await recargarTodo();
   }catch(e){
-    showAlert('alert-liqaz','Error al importar: '+e.message,'err');
-    btn.textContent='⬇ Importar datos 2025'; btn.disabled=false;
+    showAlert('alert-liqaz','Error al leer el Excel: '+e.message,'err');
+  }
+};
+
+// ── IMPORTAR EXCEL DE VENTAS DE AZÚCAR ─────────────────────────
+window.importarExcelVentas=async(input)=>{
+  const file=input.files[0]; if(!file) return;
+  input.value='';
+  showAlert('alert-liqaz','Leyendo Excel de ventas...','ok');
+  try{
+    const data=await file.arrayBuffer();
+    const wb=XLSX.read(data,{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,dateNF:'yyyy-mm-dd'});
+
+    // Mapeo de tipo de venta a método de pago de la app
+    const metodoMap={
+      'EFECTIVO':'efectivo caballos',
+      'TRANSFERENCIA':'transferencia caballos',
+      'GALICIA':'Cuenta Galicia',
+      'E-CHEQ':'Cuenta Galicia',
+      'SAN VICENTE':'CC SAN VICENTE',
+    };
+
+    let cargados=0, errores=0, saltados=0;
+    for(let i=3;i<rows.length;i++){ // empieza en fila 4 (índice 3), saltando título y encabezados
+      const r=rows[i];
+      if(!r||!r.length) continue;
+      // fila de datos: columna B=fecha, C=cantidad, D=precio, E=ingreso, G=tipo, H=obs
+      const fecha=r[1]?String(r[1]).slice(0,10):'';
+      const cantidad=parseInt(r[2])||0;
+      const precio=parseFloat(r[3])||0;
+      const monto=parseFloat(r[4])||0;
+      const tipoVenta=String(r[6]||'').trim().toUpperCase();
+      const obs=String(r[7]||'').trim();
+
+      if(!fecha||!cantidad||!monto) { saltados++; continue; }
+      // ignorar filas de totales
+      if(String(r[0]||'').toUpperCase().includes('TOTAL')) continue;
+
+      // método de pago: buscar en el mapa o usar el tipo directamente
+      const metodoRaw=tipoVenta.split(' ')[0];
+      const metodo=metodoMap[metodoRaw]||metodoMap[tipoVenta]||'efectivo caballos';
+      const precioPorBolsa=precio||Math.round(monto/cantidad);
+
+      try{
+        await fbPush('movimientos',{
+          tipo:'ingreso',
+          fecha,
+          detalle:`Venta azúcar ${cantidad} bolsas${obs?' — '+obs:''}`,
+          resp:'CARLOS',
+          unidad:'U4',
+          cat:'Venta de azúcar',
+          subdet:tipoVenta,
+          zafra:'2025',
+          monto,
+          bolsas:cantidad,
+          metodo,
+          forma:tipoVenta.includes('CHEQ')?'Cheque':tipoVenta.includes('TRANSFERENCIA')||tipoVenta==='GALICIA'?'Transferencia':'Efectivo',
+          estado:'Cobrado',
+          prov:'',
+          obs:`${obs} | $${precioPorBolsa.toLocaleString('es-AR')}/bolsa | importado de Excel`,
+          chequeVenc:'',
+          ts:Date.now()
+        });
+        cargados++;
+      }catch(e){ errores++; console.warn('Error fila',i,e); }
+    }
+    showAlert('alert-liqaz',`✓ Importadas ${cargados} ventas de azúcar${errores?` (${errores} errores)`:''}${saltados?` (${saltados} filas vacías salteadas)`:''}. Recargá para ver los datos actualizados.`,'ok');
+    await recargarTodo();
+  }catch(e){
+    showAlert('alert-liqaz','Error al leer el Excel de ventas: '+e.message,'err');
   }
 };
 
