@@ -822,9 +822,7 @@ tr:hover td{background:var(--bg3)}
         <button class="btn btn-ghost btn-sm" onclick="exportarStockExcel()">📊 Excel</button>
         <button class="btn btn-ghost btn-sm" onclick="exportarStockPDF()">📄 PDF</button>
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('input-excel-retiros').click()">⬇ Importar retiros Excel</button>
-        <input type="file" id="input-excel-retiros" accept=".xlsx,.xls" style="display:none">
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('input-excel-ventas').click()">⬇ Importar ventas Excel</button>
-        <input type="file" id="input-excel-ventas" accept=".xlsx,.xls" style="display:none">
       </div>
     </div>
     <div id="stock-resumen"></div>
@@ -4598,12 +4596,15 @@ setTimeout(()=>{
   }
 },5000);
 
-// Registrar Service Worker para que la app arranque rápido aunque la red esté lenta
+// Service Worker desactivado (requiere subir sw.js por separado)
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/sw.js')
-    .then(()=>console.log('✓ Service Worker registrado — la app cargará rápido'))
-    .catch(e=>console.warn('Service Worker no se pudo registrar:',e));
+  navigator.serviceWorker.getRegistrations().then(regs=>regs.forEach(r=>r.unregister()));
 }
 </script>
+
+<!-- Inputs fuera de panels ocultos para que .click() funcione en todos los navegadores -->
+<input type="file" id="input-excel-retiros" accept=".xlsx,.xls" style="position:fixed;top:-100px;left:-100px;opacity:0">
+<input type="file" id="input-excel-ventas" accept=".xlsx,.xls" style="position:fixed;top:-100px;left:-100px;opacity:0">
+
 </body>
 </html>
