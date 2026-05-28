@@ -1905,6 +1905,19 @@ window.guardar = async () => {
   btn.textContent='Guardando...'; btn.disabled=true;
   try{
     await push(movRef,rec);
+    // Si es una venta de azúcar, guardar también en ventasAzucar para actualizar el stock
+    if(rec.tipo==='ingreso'&&rec.cat==='Venta de azúcar'&&rec.bolsas){
+      await fbPush('ventasAzucar',{
+        fecha:rec.fecha,
+        bolsas:parseInt(rec.bolsas)||0,
+        precio:rec.bolsas?Math.round(rec.monto/(parseInt(rec.bolsas)||1)):0,
+        monto:rec.monto,
+        forma:rec.metodo||'',
+        comprador:rec.detalle||'',
+        obs:rec.obs||'',
+        ts:Date.now()
+      });
+    }
     // recarga por HTTPS (rápida, sin websocket)
     await recargarTodo();
     showAlert('alert-nuevo','✓ Guardado correctamente','ok');
