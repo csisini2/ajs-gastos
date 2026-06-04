@@ -987,6 +987,25 @@ tr:hover td{background:var(--bg3)}
 </div>
 
 <!-- MODAL PAGAR TARJETA -->
+<div class="modal-overlay" id="modal-movs-cuenta">
+  <div class="modal" style="max-width:760px;width:100%">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div>
+        <div class="modal-title" id="modal-movs-cuenta-titulo" style="margin-bottom:2px">Movimientos</div>
+        <div style="font-size:11px;color:var(--text3)" id="modal-movs-cuenta-resumen"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-movs-cuenta')" style="font-size:18px;padding:2px 10px">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;margin:8px 0;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" data-filter="todos" onclick="filtrarMovsCuenta('todos')">Todos</button>
+      <button class="btn btn-ghost btn-sm" data-filter="ingreso" onclick="filtrarMovsCuenta('ingreso')" style="color:var(--green)">Ingresos</button>
+      <button class="btn btn-ghost btn-sm" data-filter="gasto" onclick="filtrarMovsCuenta('gasto')" style="color:var(--red)">Gastos</button>
+      <button class="btn btn-ghost btn-sm" data-filter="pendiente" onclick="filtrarMovsCuenta('pendiente')" style="color:var(--amber)">Pendientes</button>
+    </div>
+    <div id="modal-movs-cuenta-lista" style="max-height:60vh;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm)"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-pagar-tc">
   <div class="modal">
     <div class="modal-title">💳 Pagar resumen tarjeta</div>
@@ -2382,7 +2401,7 @@ function renderDash(){
           :`Vence ${vencActual} (${diasParaVenc}d)`;
         vencHTML=`<div style="font-size:9px;color:${colorVenc};margin-top:1px">📅 ${txt}</div>`;
       }
-      return`<div class="metric" style="border-left:3px solid ${deudaTotal>0?'var(--red)':'var(--green)'}">
+      return`<div class="metric" style="border-left:3px solid ${deudaTotal>0?'var(--red)':'var(--green)'};cursor:pointer" onclick="verMovsCuenta('${m.replace(/'/g,"\\'")}')">
         <div class="m-lbl" style="font-size:9px">${m}</div>
         ${vencHTML}
         <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px">
@@ -2401,7 +2420,7 @@ function renderDash(){
     const gastoPend=pend.filter(r=>r.tipo==='gasto').reduce((a,r)=>a+r.monto,0);
     const saldo=ing-gas;
     const colorSaldo=saldo>=0?'var(--green)':'var(--red)';
-    return`<div class="metric" style="border-left:3px solid ${saldo>=0?'var(--green)':'var(--amber)'}">
+    return`<div class="metric" style="border-left:3px solid ${saldo>=0?'var(--green)':'var(--amber)'};cursor:pointer" onclick="verMovsCuenta('${m.replace(/'/g,"\\'")}')">
       <div class="m-lbl" style="font-size:9px">${m}</div>
       <div style="display:flex;flex-direction:column;gap:2px;margin-top:6px">
         ${ing?`<div style="font-size:11px;color:var(--green);font-family:'DM Mono',monospace">+${fmt(ing)}</div>`:''}
@@ -2494,6 +2513,112 @@ window.setVistaHist = v => {
 };
 
 // Decide qué botones de acción mostrar para un movimiento en el historial
+// Estado del modal de movimientos por cuenta
+let _movsCuentaActual = { metodo:null, filtro:'todos' };
+
+window.verMovsCuenta = (metodo) => {
+  _movsCuentaActual = { metodo, filtro:'todos' };
+  document.getElementById('modal-movs-cuenta-titulo').textContent = '📋 ' + metodo;
+  // Resaltar botón "Todos"
+  document.querySelectorAll('#modal-movs-cuenta [data-filter]').forEach(b=>{
+    b.style.background = b.getAttribute('data-filter')==='todos' ? 'var(--card)' : '';
+    b.style.border = b.getAttribute('data-filter')==='todos' ? '1px solid var(--blue)' : '';
+  });
+  renderMovsCuenta();
+  document.getElementById('modal-movs-cuenta').classList.add('show');
+};
+
+window.filtrarMovsCuenta = (filtro) => {
+  _movsCuentaActual.filtro = filtro;
+  // Resaltar el botón activo
+  document.querySelectorAll('#modal-movs-cuenta [data-filter]').forEach(b=>{
+    const activo = b.getAttribute('data-filter')===filtro;
+    b.style.background = activo ? 'var(--card)' : '';
+    b.style.border = activo ? '1px solid var(--blue)' : '';
+  });
+  renderMovsCuenta();
+};
+
+function renderMovsCuenta(){
+  const { metodo, filtro } = _movsCuentaActual;
+  if(!metodo) return;
+  // tomar todos los registros
+  let movs = registros.filter(r => r.metodo === metodo);
+  // ordenar más recientes primero
+  movs.sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||'') || (b.ts||0)-(a.ts||0));
+  // filtros
+  if(filtro==='ingreso') movs = movs.filter(r=>r.tipo==='ingreso');
+  else if(filtro==='gasto') movs = movs.filter(r=>r.tipo==='gasto');
+  else if(filtro==='pendiente') movs = movs.filter(r=>r.estado==='Pendiente');
+
+  // Calcular resumen
+  const esTC = METODOS_TARJETA.includes(metodo);
+  const conf = movs.filter(r=>r.estado==='Pagado'||r.estado==='Cobrado');
+  const ing = conf.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+r.monto,0);
+  const gas = conf.filter(r=>r.tipo==='gasto').reduce((a,r)=>a+r.monto,0);
+  const pend = movs.filter(r=>r.estado==='Pendiente').reduce((a,r)=>a+r.monto,0);
+  let resumen = `${movs.length} movimientos`;
+  if(!esTC){
+    resumen += ` · Ingresos ${fmt(ing)} · Gastos ${fmt(gas)} · Saldo ${fmt(ing-gas)}`;
+  } else {
+    const { deudaTotal, aPagar } = calcularCicloTarjeta(metodo);
+    resumen += ` · A pagar ${fmt(aPagar)} · Debe ${fmt(Math.max(0,deudaTotal))}`;
+  }
+  if(pend>0) resumen += ` · Pendiente ${fmt(pend)}`;
+  document.getElementById('modal-movs-cuenta-resumen').textContent = resumen;
+
+  // Renderizar lista
+  const cont = document.getElementById('modal-movs-cuenta-lista');
+  if(!movs.length){
+    cont.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text3)">Sin movimientos con este filtro</div>';
+    return;
+  }
+  // Agrupar por mes
+  const grupos = {};
+  movs.forEach(r=>{
+    const mes = (r.fecha||'').slice(0,7) || 'sin-fecha';
+    if(!grupos[mes]) grupos[mes] = [];
+    grupos[mes].push(r);
+  });
+  const mesesOrdenados = Object.keys(grupos).sort().reverse();
+  cont.innerHTML = mesesOrdenados.map(mes => {
+    const items = grupos[mes];
+    const ingMes = items.filter(r=>r.tipo==='ingreso'&&(r.estado==='Pagado'||r.estado==='Cobrado')).reduce((a,r)=>a+r.monto,0);
+    const gasMes = items.filter(r=>r.tipo==='gasto'&&r.estado==='Pagado').reduce((a,r)=>a+r.monto,0);
+    const mesLbl = mes==='sin-fecha' ? 'Sin fecha' : (()=>{
+      const [y,m] = mes.split('-');
+      return `${MESES[parseInt(m)]} ${y}`;
+    })();
+    return `
+      <div style="background:var(--card);padding:8px 12px;font-size:11px;font-weight:600;color:var(--text2);position:sticky;top:0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+        <span>${mesLbl} <span style="color:var(--text3);font-weight:400">· ${items.length} mov.</span></span>
+        <span style="font-family:'DM Mono',monospace;font-size:10px">
+          ${ingMes?`<span style="color:var(--green)">+${fmt(ingMes)}</span> `:''}
+          ${gasMes?`<span style="color:var(--red)">−${fmt(gasMes)}</span>`:''}
+        </span>
+      </div>
+      ${items.map(r=>`
+        <div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis">${r.detalle||'(sin detalle)'}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">
+              <span class="mono">${r.fecha||''}</span>
+              ${r.unidad?` · <span class="badge ${UBADGE[r.unidad]||'b-per'}" style="font-size:9px">${r.unidad}</span>`:''}
+              ${r.cat?` · ${r.cat}`:''}
+              ${r.resp?` · ${r.resp}`:''}
+              ${r.estado==='Pendiente'?` · <span style="color:var(--amber)">⏳ Pend.</span>`:''}
+              ${r.forma?` · ${r.forma}`:''}
+            </div>
+          </div>
+          <div style="text-align:right;white-space:nowrap;font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:${r.tipo==='ingreso'?'var(--green)':'var(--red)'}">
+            ${r.tipo==='ingreso'?'+':'−'}${fmt(r.monto)}
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }).join('');
+}
+
 function accionesMovimiento(r){
   if(r._esMaquinaria){
     return `<a href="${MAQ_URL}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;border:1px solid var(--teal-bg);padding:3px 7px;border-radius:var(--radius-xs)">⚙ maq.</a>`;
