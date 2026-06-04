@@ -1409,6 +1409,16 @@ tr:hover td{background:var(--bg3)}
     <div class="card-title">Compras en cuotas activas</div>
     <div id="cuotas-list"></div>
   </div>
+
+  <div class="card" style="border:1px solid var(--amber-bg)">
+    <div class="card-title" style="color:var(--amber)">🧹 Limpiar duplicados</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">
+      Si un gasto fijo o cuota se generó más de una vez (porque la app duplicó el movimiento), este botón los detecta y borra los repetidos, dejando uno solo por mes/cuota. No toca el recurrente original.
+    </div>
+    <div id="dup-preview" style="margin-bottom:10px"></div>
+    <button class="btn btn-sm" onclick="buscarDuplicadosRec()">🔍 Buscar duplicados</button>
+    <button class="btn btn-sm" id="btn-limpiar-dup" style="background:var(--amber);color:#fff;display:none;margin-left:6px" onclick="limpiarDuplicadosRec()">🧹 Limpiar todos</button>
+  </div>
 </div>
 
 </div><!-- fin app-root -->
@@ -3734,6 +3744,117 @@ window.limpiarCuota=()=>{
 
 window.eliminarCuota=key=>{
   confirmDelete(async()=>{ await remove(ref(db,'cuotas/'+key)); });
+};
+
+// ── BUSCAR DUPLICADOS DE RECURRENTES ──────────────────────────
+// Detecta movimientos que comparten el mismo fijoKey + mes (mismo mes/año) 
+// o el mismo cuotaKey + cuotaNum. El más viejo se considera el "original" y los demás duplicados.
+let _duplicadosDetectados = [];
+
+window.buscarDuplicadosRec = () => {
+  const preview = document.getElementById('dup-preview');
+  const btnLimpiar = document.getElementById('btn-limpiar-dup');
+
+  // Agrupar movimientos por (fijoKey + año-mes) y (cuotaKey + cuotaNum)
+  const gruposFijos = {};
+  const gruposCuotas = {};
+  registros.forEach(r => {
+    if(r.fijoKey && r.fecha){
+      const mes = r.fecha.slice(0,7); // YYYY-MM
+      const k = `${r.fijoKey}|${mes}`;
+      if(!gruposFijos[k]) gruposFijos[k] = [];
+      gruposFijos[k].push(r);
+    }
+    if(r.cuotaKey && r.cuotaNum !== undefined){
+      const k = `${r.cuotaKey}|${r.cuotaNum}`;
+      if(!gruposCuotas[k]) gruposCuotas[k] = [];
+      gruposCuotas[k].push(r);
+    }
+  });
+
+  // Filtrar solo los grupos con más de 1 movimiento
+  const dupsFijos = Object.entries(gruposFijos).filter(([k,arr])=>arr.length>1);
+  const dupsCuotas = Object.entries(gruposCuotas).filter(([k,arr])=>arr.length>1);
+
+  if(!dupsFijos.length && !dupsCuotas.length){
+    preview.innerHTML = '<div style="padding:10px;background:var(--green-bg);color:var(--green);border-radius:var(--radius-sm);font-size:12px">✓ No se detectaron duplicados de recurrentes</div>';
+    btnLimpiar.style.display = 'none';
+    _duplicadosDetectados = [];
+    return;
+  }
+
+  // Armar lista de movimientos a borrar (todos menos el más viejo de cada grupo)
+  _duplicadosDetectados = [];
+  let htmlGrupos = '';
+  let totalABorrar = 0;
+  let montoTotal = 0;
+
+  const procesarGrupo = (titulo, arr) => {
+    // ordenar por ts ascendente (más viejo primero)
+    arr.sort((a,b)=>(a.ts||0)-(b.ts||0));
+    const original = arr[0];
+    const duplicados = arr.slice(1);
+    duplicados.forEach(d => {
+      _duplicadosDetectados.push(d.key);
+      montoTotal += (d.monto || 0);
+    });
+    totalABorrar += duplicados.length;
+    htmlGrupos += `
+      <div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;margin-bottom:6px;background:var(--card)">
+        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">${titulo}</div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:6px">${original.detalle || ''} · ${original.fecha || ''} · ${fmt(original.monto || 0)}</div>
+        <div style="font-size:11px;color:var(--green)">✓ Mantener: 1 movimiento (más viejo)</div>
+        <div style="font-size:11px;color:var(--red)">✕ Borrar: ${duplicados.length} duplicado${duplicados.length>1?'s':''}</div>
+      </div>
+    `;
+  };
+
+  dupsFijos.forEach(([k,arr]) => {
+    const [,mes] = k.split('|');
+    procesarGrupo(`🔁 Fijo en ${mes} — ${arr.length} movimientos`, arr);
+  });
+  dupsCuotas.forEach(([k,arr]) => {
+    const [,num] = k.split('|');
+    procesarGrupo(`📅 Cuota ${num} — ${arr.length} movimientos`, arr);
+  });
+
+  preview.innerHTML = `
+    <div style="padding:10px;background:var(--amber-bg);color:var(--amber);border-radius:var(--radius-sm);font-size:12px;margin-bottom:8px">
+      ⚠ Se detectaron <b>${totalABorrar} movimientos duplicados</b> por un total de <b>${fmt(montoTotal)}</b>.<br>
+      <span style="font-size:10px;color:var(--text3)">De cada grupo se mantiene el más viejo (el original) y se borran los demás.</span>
+    </div>
+    ${htmlGrupos}
+  `;
+  btnLimpiar.style.display = 'inline-block';
+};
+
+window.limpiarDuplicadosRec = async () => {
+  if(!_duplicadosDetectados.length){
+    alert('Primero buscá los duplicados con el botón de arriba.');
+    return;
+  }
+  const cant = _duplicadosDetectados.length;
+  if(!confirm(`¿Borrar ${cant} movimientos duplicados? Esta acción no se puede deshacer.`)) return;
+
+  const btn = document.getElementById('btn-limpiar-dup');
+  btn.disabled = true;
+  btn.textContent = 'Borrando...';
+  let borrados = 0;
+  for(const key of _duplicadosDetectados){
+    try{
+      await fbRemove('movimientos/'+key);
+      borrados++;
+    }catch(e){
+      console.error('Error borrando', key, e);
+    }
+  }
+  btn.disabled = false;
+  btn.textContent = '🧹 Limpiar todos';
+  _duplicadosDetectados = [];
+  await recargarTodo();
+  alert(`✓ Se borraron ${borrados} duplicados correctamente.`);
+  // Refrescar la vista
+  window.buscarDuplicadosRec();
 };
 
 window.abrirEditarCuota=key=>{
