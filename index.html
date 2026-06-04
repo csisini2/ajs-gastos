@@ -2499,13 +2499,27 @@ function accionesMovimiento(r){
     return `<a href="${MAQ_URL}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;border:1px solid var(--teal-bg);padding:3px 7px;border-radius:var(--radius-xs)">⚙ maq.</a>`;
   }
   if(r.fijoKey){
-    return `<span title="Generado por gasto fijo — editalo desde Recurrentes" style="font-size:10px;color:var(--text3)">🔁 auto</span>`;
+    return `<span title="Generado por gasto fijo" style="font-size:10px;color:var(--text3);margin-right:4px">🔁 auto</span><button class="btn-del" onclick="eliminarMovRec('${r.key}','fijo')" title="Borrar este movimiento (el fijo recurrente queda)">✕</button>`;
   }
   if(r.cuotaKey){
-    return `<span title="Cuota generada automáticamente — editala desde Recurrentes" style="font-size:10px;color:var(--text3)">📅 auto</span>`;
+    return `<span title="Cuota automática" style="font-size:10px;color:var(--text3);margin-right:4px">📅 auto</span><button class="btn-del" onclick="eliminarMovRec('${r.key}','cuota')" title="Borrar este movimiento (la cuota recurrente queda)">✕</button>`;
   }
   return `<button class="btn-edit" onclick="editarMov('${r.key}')">✎</button> <button class="btn-del" onclick="eliminarMov('${r.key}')">✕</button>`;
 }
+
+// Borrar movimiento generado por recurrente (gasto fijo o cuota)
+// Útil para limpiar duplicados sin tocar el recurrente original
+window.eliminarMovRec=async(key,tipo)=>{
+  const mov=registros.find(r=>r.key===key);
+  if(!mov) return;
+  const detalle=mov.detalle||'(sin detalle)';
+  const monto=fmt(mov.monto||0);
+  const fecha=mov.fecha||'';
+  const msg=`¿Borrar este movimiento ${tipo==='fijo'?'de gasto fijo':'de cuota'} duplicado?\n\n${detalle}\n${fecha} · $${monto}\n\nEl ${tipo==='fijo'?'gasto fijo':'préstamo/cuota'} original en Recurrentes NO se borra.`;
+  if(!confirm(msg)) return;
+  // usar la misma función que para borrar normal, con deshacer
+  borrarConDeshacer(key);
+};
 
 function renderHist(){
   const data=getFilteredHist();
