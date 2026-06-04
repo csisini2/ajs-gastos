@@ -3636,7 +3636,12 @@ window.abrirEditarCuota=key=>{
 };
 
 // Generar los gastos automáticos que correspondan según las fechas
+let _generandoRec = false;
 async function generarRecurrentes(){
+  // Evitar ejecuciones paralelas (que generan duplicados)
+  if(_generandoRec) return;
+  _generandoRec = true;
+  try{
   const hoy=today();
   const hoyDate=new Date(hoy);
 
@@ -3662,12 +3667,19 @@ async function generarRecurrentes(){
           chequeVenc=vd.toISOString().slice(0,10);
           estado='Pendiente';
         }
-        await push(movRef,{
+        const movGenerado={
           tipo:'gasto',fecha:fechaStr,detalle:f.detalle,resp:f.resp,unidad:f.unidad,
           cat:f.cat||'',subdet:f.subdet||'',zafra:'',monto:f.monto,metodo:f.metodo,forma:f.forma||'',estado,
           prov:'',obs:`🔁 Gasto fijo mensual`,chequeVenc,
           fijoKey:f.key,ts:serverTimestamp()
-        });
+        };
+        const result=await push(movRef,movGenerado);
+        // CRÍTICO: agregar al array local INMEDIATAMENTE para que la verificación
+        // 'yaExiste' funcione en las próximas iteraciones del while y en próximas
+        // ejecuciones de generarRecurrentes antes de que onValue recargue
+        if(result&&result.key){
+          registros.push({...movGenerado,key:result.key,ts:Date.now()});
+        }
       }
       cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,f.dia);
     }
@@ -3692,13 +3704,17 @@ async function generarRecurrentes(){
           chequeVenc=vd.toISOString().slice(0,10);
           estado='Pendiente';
         }
-        await push(movRef,{
+        const movCuota={
           tipo:'gasto',fecha:proxima,detalle:`${c.detalle} · cuota ${cuotaNum}/${totalCuotas}`,
           resp:c.resp,unidad:c.unidad,cat:c.cat||'',subdet:c.subdet||'',zafra:'',
           monto:c.monto,metodo:c.metodo,forma:c.forma||'',estado,
           prov:'',obs:`📅 Cuota ${cuotaNum} de ${totalCuotas}`,chequeVenc,
           cuotaKey:c.key,cuotaNum,ts:serverTimestamp()
-        });
+        };
+        const result=await push(movRef,movCuota);
+        if(result&&result.key){
+          registros.push({...movCuota,key:result.key,ts:Date.now()});
+        }
         cambios=true;
       }
       // calcular próxima cuota: +1 mes
@@ -3715,6 +3731,9 @@ async function generarRecurrentes(){
     if(cuotaNum>totalCuotas&&c.activo){
       await set(ref(db,'cuotas/'+c.key+'/activo'),false);
     }
+  }
+  } finally {
+    _generandoRec = false;
   }
 }
 
