@@ -962,8 +962,25 @@ tr:hover td{background:var(--bg3)}
       <div class="card-title" style="margin:0">🤝 Préstamos de la familia</div>
       <button class="btn btn-ghost btn-sm" onclick="exportarPrestamosExcel()">📊 Excel</button>
     </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Lo que cada persona le presta a la finca o a Fernando, y lo que se le va devolviendo. Es un registro aparte: no suma como ingreso ni cambia los saldos de Bolsillos.</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Cuenta corriente entre cada persona y cada unidad: lo que la persona le presta a la finca o a Fernando, lo que la unidad le presta o paga por ella, y las devoluciones de cada lado. Es un registro aparte: no suma como ingreso ni cambia los saldos de Bolsillos.</div>
     <div id="prest-resumen"></div>
+  </div>
+
+  <!-- GASTOS DE CABALLOS AUTOMÁTICOS -->
+  <div class="card">
+    <div id="alert-prest-auto"></div>
+    <div class="card-title">🐴 Gastos de caballos pagados por la finca</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Si está activado, cada gasto pagado de la unidad U4 que cargues en la app se suma solo a la cuenta de Fernando con la finca (en contra), y cada ingreso cobrado de U4 (por ejemplo, venta de un caballo) se le descuenta. No hace falta cargarlos acá.</div>
+    <div class="fg">
+      <div class="field"><label>Sumar a la cuenta de Fernando</label>
+        <select id="prest-auto-on"><option value="si">Sí</option><option value="no">No</option></select>
+      </div>
+      <div class="field"><label>Desde la fecha</label><input type="date" id="prest-auto-desde"></div>
+    </div>
+    <div class="row-btns" style="margin-top:4px">
+      <button class="btn btn-primary" onclick="guardarPrestAuto()">Guardar</button>
+    </div>
+    <div id="prest-auto-info" style="font-size:12px;color:var(--text2);margin-top:10px"></div>
   </div>
 
   <!-- NUEVO PRÉSTAMO / DEVOLUCIÓN -->
@@ -973,8 +990,10 @@ tr:hover td{background:var(--bg3)}
     <div class="fg">
       <div class="field"><label>Tipo</label>
         <select id="prest-tipo" onchange="onPrestTipoChange()">
-          <option value="prestamo">Préstamo (entra plata)</option>
-          <option value="devolucion">Devolución (se devuelve)</option>
+          <option value="prestamo">Préstamo de la persona a la unidad</option>
+          <option value="devolucion">Devolución de la unidad a la persona</option>
+          <option value="prestamo_unidad">Préstamo de la unidad a la persona (o pago por ella)</option>
+          <option value="devolucion_unidad">Devolución de la persona a la unidad</option>
         </select>
       </div>
       <div class="field"><label>Fecha</label><input type="date" id="prest-fecha"></div>
@@ -1711,7 +1730,7 @@ async function recargarTodo(){
     if(fn[id]) fn[id]();
 
     // 2) El resto en paralelo por HTTPS, sin bloquear
-    const [re,li,em,ca,ins,ad,ta,no,fi,cu,la,rt,db2,sf,va,pr]=await Promise.all([
+    const [re,li,em,ca,ins,ad,ta,no,fi,cu,la,rt,db2,sf,va,pr,pc]=await Promise.all([
       traer('remitos').catch(()=>null), traer('liquidaciones').catch(()=>null),
       traer('empleados').catch(()=>null), traer('caballos').catch(()=>null),
       traer('insumos').catch(()=>null), traer('adelantos').catch(()=>null),
@@ -1719,7 +1738,7 @@ async function recargarTodo(){
       traer('fijos').catch(()=>null), traer('cuotas').catch(()=>null),
       traer('liqAzucar').catch(()=>null), traer('retiros').catch(()=>null),
       traer('descBolsas').catch(()=>null), traer('stockFuturo').catch(()=>null),
-      traer('ventasAzucar').catch(()=>null), traer('prestamos').catch(()=>null)
+      traer('ventasAzucar').catch(()=>null), traer('prestamos').catch(()=>null), traer('prestamosConfig').catch(()=>null)
     ]);
     remitos=objAArray(re); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
     liquidaciones=objAArray(li); liquidaciones.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
@@ -1737,6 +1756,7 @@ async function recargarTodo(){
     stockFuturo=objAArray(sf);
     ventasAzucar=objAArray(va);
     prestamos=objAArray(pr);
+    prestConfig=pc||{};
 
     if(typeof updateBalance==='function') updateBalance();
     if(fn[id]) fn[id]();
@@ -1781,7 +1801,7 @@ let registros=[], remitos=[], liquidaciones=[], empleados=[], caballos=[], insum
 let maqGasoil=[], maqMant=[];
 let tarjetas={}, notas=[], fijos=[], cuotas=[];
 let liqAzucar=[], retiros=[], descBolsas=[], stockFuturo=[], ventasAzucar=[];
-let prestamos=[];
+let prestamos=[], prestConfig={};
 let histFiltro='todos', tipoActual='gasto', editKey=null, kilosKey=null, vistaHist='cards', notasFiltro='activas';
 
 // HELPERS
@@ -4952,18 +4972,74 @@ onValue(ventasAzucarRef,snap=>{
 
 // ── PRÉSTAMOS DE LA FAMILIA ──────────────────────────────────────
 // Registro aparte (colección "prestamos"): no se mezcla con los movimientos.
-// tipo: 'prestamo' | 'devolucion' · destino: U1 finca, U4 Fernando/caballos, U5, U6
+// Cuenta corriente entre cada persona y cada unidad (U1 finca, U4 Fernando/caballos, U5, U6).
+// Saldo desde el lado de la persona: positivo = a favor (la unidad le debe), negativo = en contra (le debe a la unidad).
 const PREST_DESTINOS={U1:'Finca (U1)',U4:'Fernando · Caballos (U4)',U5:'Cochera (U5)',U6:'Propiedades (U6)'};
 const PREST_CORTO={U1:'Finca',U4:'Fernando · Caballos',U5:'Cochera',U6:'Propiedades'};
+// signo: +1 la persona pone plata en la unidad, -1 la unidad le da plata a la persona
+const PREST_TIPOS={
+  prestamo:{signo:1,label:'Préstamo',badge:'b-u6',persona:'Quién presta',destino:'A quién se le presta',btn:'Guardar préstamo'},
+  devolucion:{signo:-1,label:'Devolución',badge:'b-u5',persona:'A quién se le devuelve',destino:'Quién devuelve',btn:'Guardar devolución'},
+  prestamo_unidad:{signo:-1,label:'Préstamo de la unidad',badge:'b-u4',persona:'Quién recibe la plata',destino:'Unidad que presta o paga',btn:'Guardar préstamo de la unidad'},
+  devolucion_unidad:{signo:1,label:'Devolución a la unidad',badge:'b-u1',persona:'Quién devuelve',destino:'Unidad que recibe',btn:'Guardar devolución a la unidad'}
+};
+const tipoP=t=>PREST_TIPOS[t]||PREST_TIPOS.prestamo;
 let editPrestKey=null;
+// Config por defecto: activado desde el 29/10/2026 (arranca el control; lo anterior queda en cero)
+const prestAutoOn=()=>(prestConfig.autoU4||'si')==='si';
+const prestAutoDesde=()=>prestConfig.desde||'2026-10-29';
+// Gastos U4 pagados → la finca pone plata por Fernando (en contra de él)
+// Ingresos U4 cobrados → vuelve plata a la finca (a favor de él)
+function prestamosAutoU4(){
+  if(!prestAutoOn()) return [];
+  const desde=prestAutoDesde();
+  return getAllMovimientos().filter(r=>r.unidad==='U4'&&(r.fecha||'')>=desde&&(
+    (r.tipo==='gasto'&&r.estado==='Pagado')||(r.tipo==='ingreso'&&r.estado==='Cobrado')
+  )).map(r=>({
+    key:'auto_'+r.key, auto:true,
+    tipo:r.tipo==='gasto'?'prestamo_unidad':'devolucion_unidad',
+    fecha:r.fecha, persona:'FERNANDO', destino:'U1', moneda:'ARS',
+    monto:Number(r.monto)||0, forma:r.metodo||'',
+    motivo:(r.tipo==='gasto'?'Gasto caballos: ':'Ingreso caballos: ')+(r.detalle||r.cat||'')
+  }));
+}
+const todosPrestamos=()=>[...prestamos,...prestamosAutoU4()];
+
+window.guardarPrestAuto=async()=>{
+  const cfg={autoU4:document.getElementById('prest-auto-on').value,desde:document.getElementById('prest-auto-desde').value||'2026-10-29'};
+  try{
+    await fbSet('prestamosConfig',cfg);
+    prestConfig=cfg;
+    showAlert('alert-prest-auto','✓ Guardado','ok');
+    renderPrestamos();
+  }catch(e){ showAlert('alert-prest-auto','Error al guardar','err'); }
+};
+
+function renderPrestAutoInfo(){
+  document.getElementById('prest-auto-on').value=prestAutoOn()?'si':'no';
+  document.getElementById('prest-auto-desde').value=prestAutoDesde();
+  const info=document.getElementById('prest-auto-info');
+  if(!prestAutoOn()){ info.textContent='Desactivado: los gastos de caballos no se suman a la cuenta de Fernando.'; return; }
+  const auto=prestamosAutoU4();
+  const gastos=auto.filter(a=>a.tipo==='prestamo_unidad').reduce((t,a)=>t+a.monto,0);
+  const ingresos=auto.filter(a=>a.tipo==='devolucion_unidad').reduce((t,a)=>t+a.monto,0);
+  info.innerHTML=`Desde el ${escP(prestAutoDesde())}: gastos de caballos <span class="mono" style="color:var(--red)">${fmt(gastos)}</span> · ingresos de caballos <span class="mono" style="color:var(--green)">${fmt(ingresos)}</span> · ${auto.length} movimientos.`;
+}
 const escP=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtMon=(n,mon)=>mon==='USD'?'US$ '+Math.round(n).toLocaleString('es-AR'):fmt(n);
+// texto del saldo visto desde la persona
+function estadoSaldo(saldo,persona,destino,moneda){
+  const u=PREST_CORTO[destino]||destino;
+  if(Math.round(saldo)===0) return {txt:'Saldado',color:'var(--text3)',det:'sin deuda'};
+  if(saldo>0) return {txt:'A favor',color:'var(--green)',det:`${u} le debe ${fmtMon(saldo,moneda)}`};
+  return {txt:'En contra',color:'var(--red)',det:`le debe ${fmtMon(-saldo,moneda)} a ${u}`};
+}
 
 window.onPrestTipoChange=()=>{
-  const dev=document.getElementById('prest-tipo').value==='devolucion';
-  document.getElementById('prest-persona-lbl').textContent=dev?'A quién se le devuelve':'Quién presta';
-  document.getElementById('prest-destino-lbl').textContent=dev?'Quién devuelve':'A quién se le presta';
-  if(!editPrestKey) document.getElementById('prest-guardar-btn').textContent=dev?'Guardar devolución':'Guardar préstamo';
+  const t=tipoP(document.getElementById('prest-tipo').value);
+  document.getElementById('prest-persona-lbl').textContent=t.persona;
+  document.getElementById('prest-destino-lbl').textContent=t.destino;
+  if(!editPrestKey) document.getElementById('prest-guardar-btn').textContent=t.btn;
 };
 
 window.guardarPrestamo=async()=>{
@@ -4986,7 +5062,7 @@ window.guardarPrestamo=async()=>{
       showAlert('alert-prest','✓ Cambios guardados','ok');
     }else{
       await fbPush('prestamos',{...datos,ts:Date.now()});
-      showAlert('alert-prest',datos.tipo==='devolucion'?'✓ Devolución guardada':'✓ Préstamo guardado','ok');
+      showAlert('alert-prest','✓ '+tipoP(datos.tipo).label+' guardado','ok');
     }
     limpiarPrestamo();
     await recargarTodo();
@@ -5009,7 +5085,7 @@ window.limpiarPrestamo=()=>{
 window.editarPrestamo=key=>{
   const p=prestamos.find(x=>x.key===key); if(!p) return;
   editPrestKey=key;
-  document.getElementById('prest-tipo').value=p.tipo||'prestamo';
+  document.getElementById('prest-tipo').value=PREST_TIPOS[p.tipo]?p.tipo:'prestamo';
   document.getElementById('prest-fecha').value=p.fecha||'';
   document.getElementById('prest-persona').value=p.persona||'';
   document.getElementById('prest-destino').value=p.destino||'U1';
@@ -5033,57 +5109,66 @@ window.eliminarPrestamo=key=>{
   });
 };
 
-// Saldos: por destino y moneda, y por persona+destino+moneda
+// Por persona+unidad+moneda: puso (persona → unidad), recibió (unidad → persona), saldo = puso − recibió
+// Por unidad+moneda: debe (suma de saldos a favor de personas) y le deben (suma de saldos en contra)
 function calcularPrestamos(){
-  const porDestino={}, porPersona={};
-  prestamos.forEach(p=>{
+  const cuentas={};
+  todosPrestamos().forEach(p=>{
     const m=Number(p.monto)||0, mon=p.moneda||'ARS', d=p.destino||'U1', per=p.persona||'—';
-    const signo=p.tipo==='devolucion'?-1:1;
-    const kd=d+'|'+mon;
-    porDestino[kd]=porDestino[kd]||{destino:d,moneda:mon,prestado:0,devuelto:0};
-    const kp=per+'|'+d+'|'+mon;
-    porPersona[kp]=porPersona[kp]||{persona:per,destino:d,moneda:mon,prestado:0,devuelto:0};
-    if(signo>0){ porDestino[kd].prestado+=m; porPersona[kp].prestado+=m; }
-    else{ porDestino[kd].devuelto+=m; porPersona[kp].devuelto+=m; }
+    const k=per+'|'+d+'|'+mon;
+    cuentas[k]=cuentas[k]||{persona:per,destino:d,moneda:mon,puso:0,recibio:0};
+    if(tipoP(p.tipo).signo>0) cuentas[k].puso+=m; else cuentas[k].recibio+=m;
   });
-  return {porDestino:Object.values(porDestino),porPersona:Object.values(porPersona)};
+  const porPersona=Object.values(cuentas).map(c=>({...c,saldo:c.puso-c.recibio}))
+    .sort((a,b)=>a.persona.localeCompare(b.persona)||a.destino.localeCompare(b.destino)||a.moneda.localeCompare(b.moneda));
+  const porDestino={};
+  porPersona.forEach(c=>{
+    const k=c.destino+'|'+c.moneda;
+    porDestino[k]=porDestino[k]||{destino:c.destino,moneda:c.moneda,debe:0,leDeben:0};
+    if(c.saldo>0) porDestino[k].debe+=c.saldo; else porDestino[k].leDeben+=-c.saldo;
+  });
+  return {porDestino:Object.values(porDestino),porPersona};
 }
 
 function renderPrestamosResumen(){
   const cont=document.getElementById('prest-resumen');
-  if(!prestamos.length){ cont.innerHTML='<div class="empty"><div class="empty-icon">🤝</div>Sin préstamos cargados</div>'; return; }
+  if(!todosPrestamos().length){ cont.innerHTML='<div class="empty"><div class="empty-icon">🤝</div>Sin préstamos cargados</div>'; return; }
   const {porDestino,porPersona}=calcularPrestamos();
   const colores={U1:'var(--blue)',U4:'var(--purple)',U5:'var(--green)',U6:'var(--amber)'};
   const destinos=['U1','U4','U5','U6'].filter(d=>porDestino.some(x=>x.destino===d));
   const tarjetas=destinos.map(d=>{
     const filas=porDestino.filter(x=>x.destino===d).sort((a,b)=>a.moneda.localeCompare(b.moneda));
     return `<div style="background:var(--bg3);padding:14px;border-radius:var(--radius-xs);border-left:3px solid ${colores[d]}">
-      <div style="font-size:10px;color:var(--text3);text-transform:uppercase">${PREST_DESTINOS[d]} · debe</div>
-      ${filas.map(x=>`<div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:${colores[d]}">${fmtMon(x.prestado-x.devuelto,x.moneda)}</div>
-      <div style="font-size:10px;color:var(--text3)">prestado ${fmtMon(x.prestado,x.moneda)} · devuelto ${fmtMon(x.devuelto,x.moneda)}</div>`).join('')}
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">${PREST_DESTINOS[d]}</div>
+      ${filas.map(x=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0">
+          <span style="color:var(--text3)">Debe a la familia</span>
+          <span style="font-family:'DM Mono',monospace;font-weight:500;color:${x.debe>0?'var(--red)':'var(--text3)'}">${fmtMon(x.debe,x.moneda)}</span></div>
+        ${x.leDeben>0?`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0">
+          <span style="color:var(--text3)">Le deben a la unidad</span>
+          <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--green)">${fmtMon(x.leDeben,x.moneda)}</span></div>`:''}`).join('')}
     </div>`;
   }).join('');
-  const filasPer=porPersona.sort((a,b)=>a.persona.localeCompare(b.persona)||a.destino.localeCompare(b.destino)||a.moneda.localeCompare(b.moneda));
   const th='padding:5px 6px;border-bottom:1px solid var(--border)';
   cont.innerHTML=`
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px">${tarjetas}</div>
-    <div style="font-size:13px;font-weight:500;margin-bottom:8px">Saldo por persona</div>
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px">${tarjetas}</div>
+    <div style="font-size:13px;font-weight:500;margin-bottom:4px">Saldo por persona</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px"><span style="color:var(--green)">A favor</span>: la unidad le debe a la persona. <span style="color:var(--red)">En contra</span>: la persona le debe a la unidad.</div>
+    <div style="overflow-x:auto"><table style="width:100%;min-width:0;border-collapse:collapse;font-size:12px">
       <tr style="color:var(--text3);font-size:10px;text-transform:uppercase">
-        <th style="text-align:left;${th}">Persona</th>
-        <th style="text-align:left;${th}">A quién</th>
-        <th style="text-align:right;${th}">Prestado</th>
-        <th style="text-align:right;${th}">Devuelto</th>
-        <th style="text-align:right;${th}">Pendiente</th>
+        <th style="text-align:left;${th}">Persona · unidad</th>
+        <th style="text-align:right;${th}">Saldo</th>
       </tr>
-      ${filasPer.map(x=>{
-        const pend=x.prestado-x.devuelto;
+      ${porPersona.map(x=>{
+        const e=estadoSaldo(x.saldo,x.persona,x.destino,x.moneda);
         return `<tr>
-          <td style="${th};font-weight:500">${escP(x.persona)}</td>
-          <td style="${th};font-size:11px">${PREST_DESTINOS[x.destino]||escP(x.destino)}</td>
-          <td style="${th};text-align:right;font-family:'DM Mono',monospace">${fmtMon(x.prestado,x.moneda)}</td>
-          <td style="${th};text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${fmtMon(x.devuelto,x.moneda)}</td>
-          <td style="${th};text-align:right;font-family:'DM Mono',monospace;font-weight:500;color:${pend>0?'var(--amber)':'var(--text3)'}">${fmtMon(pend,x.moneda)}</td>
+          <td style="${th}">
+            <div style="font-weight:500">${escP(x.persona)} <span style="font-weight:400;color:var(--text3)">· ${PREST_CORTO[x.destino]||escP(x.destino)}</span></div>
+            <div style="font-size:10px;color:var(--text3)">puso ${fmtMon(x.puso,x.moneda)} · recibió ${fmtMon(x.recibio,x.moneda)}</div>
+          </td>
+          <td style="${th};text-align:right;white-space:nowrap">
+            <div style="font-family:'DM Mono',monospace;font-weight:500;color:${e.color}">${fmtMon(Math.abs(x.saldo),x.moneda)}</div>
+            <div style="font-size:10px;color:${e.color};text-transform:uppercase">${e.txt}</div>
+          </td>
         </tr>`;
       }).join('')}
     </table></div>`;
@@ -5091,40 +5176,38 @@ function renderPrestamosResumen(){
 
 window.renderPrestamosList=function(){
   const cont=document.getElementById('prest-list');
-  // opciones del filtro de persona, armadas con los datos
   const selPer=document.getElementById('filtro-prest-persona');
   const actual=selPer.value;
-  const personas=[...new Set(prestamos.map(p=>p.persona).filter(Boolean))].sort();
+  const lista=todosPrestamos();
+  const personas=[...new Set(lista.map(p=>p.persona).filter(Boolean))].sort();
   selPer.innerHTML='<option value="">Todas</option>'+personas.map(p=>`<option value="${escP(p)}">${escP(p)}</option>`).join('');
   if(personas.includes(actual)) selPer.value=actual;
   const fd=document.getElementById('filtro-prest-destino').value;
   const fp=selPer.value;
-  const data=prestamos.filter(p=>(!fd||p.destino===fd)&&(!fp||p.persona===fp))
+  const data=lista.filter(p=>(!fd||p.destino===fd)&&(!fp||p.persona===fp))
     .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||((b.ts||0)-(a.ts||0)));
   if(!data.length){ cont.innerHTML='<div class="empty"><div class="empty-icon">🤝</div>Sin registros</div>'; return; }
   const th='padding:5px 6px;border-bottom:1px solid var(--border)';
-  cont.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+  cont.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">Montos en verde: la persona puso plata. En rojo: la persona recibió plata de la unidad.</div>
+    <div style="overflow-x:auto"><table style="width:100%;min-width:0;border-collapse:collapse;font-size:12px">
     <tr style="color:var(--text3);font-size:10px;text-transform:uppercase">
-      <th style="text-align:left;${th}">Fecha</th>
-      <th style="text-align:left;${th}">Tipo</th>
-      <th style="text-align:left;${th}">Persona</th>
-      <th style="text-align:left;${th}">Unidad</th>
+      <th style="text-align:left;${th}">Detalle</th>
       <th style="text-align:right;${th}">Monto</th>
-      <th style="text-align:left;${th}">Para qué</th>
       <th style="${th}"></th>
     </tr>
     ${data.map(p=>{
-      const dev=p.tipo==='devolucion';
+      const t=tipoP(p.tipo), pone=t.signo>0;
+      const det=escP([p.motivo,p.forma,p.obs].filter(Boolean).join(' · '));
       return `<tr>
-        <td style="${th};font-family:'DM Mono',monospace;color:var(--text3);font-size:11px">${escP(p.fecha)}</td>
-        <td style="${th}"><span class="badge ${dev?'b-u5':'b-u6'}">${dev?'Devolución':'Préstamo'}</span></td>
-        <td style="${th};font-weight:500">${escP(p.persona)}</td>
-        <td style="${th}"><span class="badge ${UBADGE[p.destino]||''}">${PREST_CORTO[p.destino]||escP(p.destino)}</span></td>
-        <td style="${th};text-align:right;font-family:'DM Mono',monospace;color:${dev?'var(--green)':'var(--amber)'}">${dev?'−':''}${fmtMon(Number(p.monto)||0,p.moneda)}</td>
-        <td style="${th};font-size:11px;color:var(--text3)">${escP([p.motivo,p.forma,p.obs].filter(Boolean).join(' · '))||'—'}</td>
-        <td style="${th};white-space:nowrap">
+        <td style="${th}">
+          <div><span style="font-weight:500">${escP(p.persona)}</span> <span class="badge ${UBADGE[p.destino]||''}">${PREST_CORTO[p.destino]||escP(p.destino)}</span></div>
+          <div style="margin-top:3px"><span class="badge ${t.badge}">${t.label}</span>${p.auto?' <span class="badge b-teal">Automático</span>':''} <span style="font-family:'DM Mono',monospace;color:var(--text3);font-size:10px">${escP(p.fecha)}</span></div>
+          ${det?`<div style="font-size:10px;color:var(--text3);margin-top:3px">${det}</div>`:''}
+        </td>
+        <td style="${th};text-align:right;white-space:nowrap;font-family:'DM Mono',monospace;color:${pone?'var(--green)':'var(--red)'}">${pone?'+':'−'}${fmtMon(Number(p.monto)||0,p.moneda)}</td>
+        <td style="${th};white-space:nowrap">${p.auto?'<span style="font-size:10px;color:var(--text3)">se edita en Historial</span>':`
           <button class="btn-edit btn-sm" onclick="editarPrestamo('${p.key}')">✎</button>
-          <button class="btn-del btn-sm" onclick="eliminarPrestamo('${p.key}')">✕</button>
+          <button class="btn-del btn-sm" onclick="eliminarPrestamo('${p.key}')">✕</button>`}
         </td>
       </tr>`;
     }).join('')}
@@ -5133,27 +5216,33 @@ window.renderPrestamosList=function(){
 
 function renderPrestamos(){
   if(!document.getElementById('prest-fecha').value) document.getElementById('prest-fecha').value=today();
+  renderPrestAutoInfo();
   renderPrestamosResumen();
   renderPrestamosList();
 }
 
 window.exportarPrestamosExcel=()=>{
-  if(!prestamos.length){ showAlert('alert-prest','No hay registros para exportar','err'); return; }
-  const regs=prestamos.slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')).map(p=>({
-    Fecha:p.fecha, Tipo:p.tipo==='devolucion'?'Devolución':'Préstamo', Persona:p.persona,
+  if(!todosPrestamos().length){ showAlert('alert-prest','No hay registros para exportar','err'); return; }
+  const regs=todosPrestamos().slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')).map(p=>({
+    Fecha:p.fecha, Tipo:tipoP(p.tipo).label, Persona:p.persona,
     Unidad:PREST_DESTINOS[p.destino]||p.destino, Moneda:p.moneda||'ARS',
-    Monto:(p.tipo==='devolucion'?-1:1)*(Number(p.monto)||0), Como:p.forma||'', 'Para qué':p.motivo||'', Observaciones:p.obs||''
+    Monto:tipoP(p.tipo).signo*(Number(p.monto)||0), Como:p.forma||'', 'Para qué':p.motivo||'', Observaciones:p.obs||'', Origen:p.auto?'Automático (Historial U4)':'Cargado a mano'
   }));
-  const saldos=calcularPrestamos().porPersona.sort((a,b)=>a.persona.localeCompare(b.persona)||a.destino.localeCompare(b.destino)||a.moneda.localeCompare(b.moneda)).map(x=>({
-    Persona:x.persona, Unidad:PREST_DESTINOS[x.destino]||x.destino, Moneda:x.moneda,
-    Prestado:x.prestado, Devuelto:x.devuelto, Pendiente:x.prestado-x.devuelto
-  }));
+  const saldos=calcularPrestamos().porPersona.map(x=>{
+    const e=estadoSaldo(x.saldo,x.persona,x.destino,x.moneda);
+    return {Persona:x.persona, Unidad:PREST_DESTINOS[x.destino]||x.destino, Moneda:x.moneda,
+      Puso:x.puso, Recibió:x.recibio, Saldo:x.saldo, Estado:e.txt, Detalle:e.det};
+  });
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(saldos),'Saldos');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(regs),'Registros');
   XLSX.writeFile(wb,`AJS_Prestamos_${today()}.xlsx`);
 };
 
+onValue(ref(db,'prestamosConfig'),snap=>{
+  prestConfig=snap.val()||{};
+  if(document.getElementById('panel-prestamos').classList.contains('active')) renderPrestamos();
+});
 onValue(prestamosRef,snap=>{
   prestamos=[]; snap.forEach(c=>{ prestamos.push({...c.val(),key:c.key}); });
   if(document.getElementById('panel-prestamos').classList.contains('active')) renderPrestamos();
