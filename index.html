@@ -228,6 +228,7 @@ tr:hover td{background:var(--bg3)}
   <button class="nav-btn" onclick="showTab('analisis',this)">📊 Análisis</button>
   <button class="nav-btn" onclick="showTab('zafra',this)">🌾 Zafra</button>
   <button class="nav-btn" onclick="showTab('stock',this)">📦 Stock azúcar</button>
+  <button class="nav-btn" onclick="showTab('prestamos',this)">🤝 Préstamos</button>
   <button class="nav-btn" onclick="showTab('unidades',this)">Por unidad</button>
 </div>
 
@@ -954,6 +955,82 @@ tr:hover td{background:var(--bg3)}
 </div>
 
 
+<div id="panel-prestamos" class="panel">
+  <!-- RESUMEN DE PRÉSTAMOS -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+      <div class="card-title" style="margin:0">🤝 Préstamos de la familia</div>
+      <button class="btn btn-ghost btn-sm" onclick="exportarPrestamosExcel()">📊 Excel</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Lo que cada persona le presta a la finca o a Fernando, y lo que se le va devolviendo. Es un registro aparte: no suma como ingreso ni cambia los saldos de Bolsillos.</div>
+    <div id="prest-resumen"></div>
+  </div>
+
+  <!-- NUEVO PRÉSTAMO / DEVOLUCIÓN -->
+  <div class="card">
+    <div id="alert-prest"></div>
+    <div class="card-title" id="prest-form-title">Nuevo registro</div>
+    <div class="fg">
+      <div class="field"><label>Tipo</label>
+        <select id="prest-tipo" onchange="onPrestTipoChange()">
+          <option value="prestamo">Préstamo (entra plata)</option>
+          <option value="devolucion">Devolución (se devuelve)</option>
+        </select>
+      </div>
+      <div class="field"><label>Fecha</label><input type="date" id="prest-fecha"></div>
+    </div>
+    <div class="fg">
+      <div class="field"><label id="prest-persona-lbl">Quién presta</label>
+        <input type="text" id="prest-persona" list="prest-personas" placeholder="ej: CARLOS, LI, PIPO">
+        <datalist id="prest-personas"><option value="CARLOS"><option value="LI"><option value="PIPO"></datalist>
+      </div>
+      <div class="field"><label id="prest-destino-lbl">A quién se le presta</label>
+        <select id="prest-destino">
+          <option value="U1">Finca (U1)</option>
+          <option value="U4">Fernando · Caballos (U4)</option>
+          <option value="U5">Cochera (U5)</option>
+          <option value="U6">Propiedades (U6)</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg">
+      <div class="field"><label>Moneda</label>
+        <select id="prest-moneda"><option value="ARS">Pesos ($)</option><option value="USD">Dólares (US$)</option></select>
+      </div>
+      <div class="field"><label>Monto</label><input type="number" id="prest-monto" placeholder="0" min="0" inputmode="decimal"></div>
+    </div>
+    <div class="fg">
+      <div class="field"><label>Cómo</label>
+        <select id="prest-forma">
+          <option>Transferencia</option><option>Efectivo</option><option>Pagó un gasto directo</option><option>Otro</option>
+        </select>
+      </div>
+      <div class="field"><label>Para qué</label><input type="text" id="prest-motivo" placeholder="ej: gastos fijos de noviembre"></div>
+    </div>
+    <div class="field"><label>Observaciones (opcional)</label><input type="text" id="prest-obs" placeholder="Notas"></div>
+    <div class="row-btns">
+      <button class="btn btn-primary" id="prest-guardar-btn" onclick="guardarPrestamo()">Guardar préstamo</button>
+      <button class="btn btn-ghost" onclick="limpiarPrestamo()" id="prest-cancelar-btn">Limpiar</button>
+    </div>
+  </div>
+
+  <!-- HISTORIAL -->
+  <div class="card">
+    <div class="card-title">Historial</div>
+    <div class="fg">
+      <div class="field"><label>Unidad</label>
+        <select id="filtro-prest-destino" onchange="renderPrestamosList()">
+          <option value="">Todas</option><option value="U1">Finca (U1)</option><option value="U4">Fernando · Caballos (U4)</option><option value="U5">Cochera (U5)</option><option value="U6">Propiedades (U6)</option>
+        </select>
+      </div>
+      <div class="field"><label>Persona</label>
+        <select id="filtro-prest-persona" onchange="renderPrestamosList()"><option value="">Todas</option></select>
+      </div>
+    </div>
+    <div id="prest-list"></div>
+  </div>
+</div>
+
 <div id="panel-bolsillos" class="panel">
   <div class="card">
     <div class="card-title">💰 Saldos por bolsillo</div>
@@ -1630,11 +1707,11 @@ async function recargarTodo(){
     syncLbl.textContent=`en línea · ${registros.length} registros`;
     if(typeof updateBalance==='function') updateBalance();
     const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-    const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock,cosecha:renderRemitos,liquidaciones:renderLiquidaciones,empleados:renderEmpleados,insumos:renderInsumos};
+    const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock,prestamos:renderPrestamos,cosecha:renderRemitos,liquidaciones:renderLiquidaciones,empleados:renderEmpleados,insumos:renderInsumos};
     if(fn[id]) fn[id]();
 
     // 2) El resto en paralelo por HTTPS, sin bloquear
-    const [re,li,em,ca,ins,ad,ta,no,fi,cu,la,rt,db2,sf,va]=await Promise.all([
+    const [re,li,em,ca,ins,ad,ta,no,fi,cu,la,rt,db2,sf,va,pr]=await Promise.all([
       traer('remitos').catch(()=>null), traer('liquidaciones').catch(()=>null),
       traer('empleados').catch(()=>null), traer('caballos').catch(()=>null),
       traer('insumos').catch(()=>null), traer('adelantos').catch(()=>null),
@@ -1642,7 +1719,7 @@ async function recargarTodo(){
       traer('fijos').catch(()=>null), traer('cuotas').catch(()=>null),
       traer('liqAzucar').catch(()=>null), traer('retiros').catch(()=>null),
       traer('descBolsas').catch(()=>null), traer('stockFuturo').catch(()=>null),
-      traer('ventasAzucar').catch(()=>null)
+      traer('ventasAzucar').catch(()=>null), traer('prestamos').catch(()=>null)
     ]);
     remitos=objAArray(re); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
     liquidaciones=objAArray(li); liquidaciones.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
@@ -1659,6 +1736,7 @@ async function recargarTodo(){
     descBolsas=objAArray(db2);
     stockFuturo=objAArray(sf);
     ventasAzucar=objAArray(va);
+    prestamos=objAArray(pr);
 
     if(typeof updateBalance==='function') updateBalance();
     if(fn[id]) fn[id]();
@@ -1696,12 +1774,14 @@ const retirosRef = ref(db,'retiros');
 const descBolsasRef = ref(db,'descBolsas');
 const futuroRef = ref(db,'stockFuturo');
 const ventasAzucarRef = ref(db,'ventasAzucar');
+const prestamosRef = ref(db,'prestamos');
 
 // STATE
 let registros=[], remitos=[], liquidaciones=[], empleados=[], caballos=[], insumos=[], adelantos=[];
 let maqGasoil=[], maqMant=[];
 let tarjetas={}, notas=[], fijos=[], cuotas=[];
 let liqAzucar=[], retiros=[], descBolsas=[], stockFuturo=[], ventasAzucar=[];
+let prestamos=[];
 let histFiltro='todos', tipoActual='gasto', editKey=null, kilosKey=null, vistaHist='cards', notasFiltro='activas';
 
 // HELPERS
@@ -1807,7 +1887,7 @@ window.showTab = (t,el) => {
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+t).classList.add('active');
   if(el) el.classList.add('active');
-  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,cosecha:renderRemitos,liquidaciones:renderLiquidaciones,empleados:renderEmpleados,caballos:renderCaballos,insumos:renderInsumos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock};
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,cosecha:renderRemitos,liquidaciones:renderLiquidaciones,empleados:renderEmpleados,caballos:renderCaballos,insumos:renderInsumos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock,prestamos:renderPrestamos};
   if(fn[t]) fn[t]();
 };
 
@@ -3195,7 +3275,7 @@ get(movRef).then(snap=>{
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock};
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock,prestamos:renderPrestamos};
   if(fn[id]) fn[id]();
 }).catch(()=>{/* sin auth todavía, se reintentará cuando el usuario haga login */});
 
@@ -3212,7 +3292,7 @@ onValue(movRef,snap=>{
   syncLbl.textContent=`en línea · ${registros.length} registros`;
   updateBalance();
   const id=document.querySelector('.panel.active')?.id?.replace('panel-','');
-  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock};
+  const fn={dashboard:renderDash,historial:renderHist,unidades:renderUnidades,caballos:renderCaballos,reporte:renderReporte,bolsillos:()=>{renderBolsillos();renderTarjetas();},notas:renderNotas,recurrentes:()=>{renderFijos();renderCuotas();},analisis:renderAnalisis,zafra:renderZafra,stock:renderStock,prestamos:renderPrestamos};
   if(fn[id]) fn[id]();
 },(err)=>{
   syncDot.style.background='var(--red)';
@@ -4869,6 +4949,215 @@ onValue(ventasAzucarRef,snap=>{
   if(document.getElementById('panel-stock').classList.contains('active')) renderStock();
 });
 
+
+// ── PRÉSTAMOS DE LA FAMILIA ──────────────────────────────────────
+// Registro aparte (colección "prestamos"): no se mezcla con los movimientos.
+// tipo: 'prestamo' | 'devolucion' · destino: U1 finca, U4 Fernando/caballos, U5, U6
+const PREST_DESTINOS={U1:'Finca (U1)',U4:'Fernando · Caballos (U4)',U5:'Cochera (U5)',U6:'Propiedades (U6)'};
+const PREST_CORTO={U1:'Finca',U4:'Fernando · Caballos',U5:'Cochera',U6:'Propiedades'};
+let editPrestKey=null;
+const escP=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtMon=(n,mon)=>mon==='USD'?'US$ '+Math.round(n).toLocaleString('es-AR'):fmt(n);
+
+window.onPrestTipoChange=()=>{
+  const dev=document.getElementById('prest-tipo').value==='devolucion';
+  document.getElementById('prest-persona-lbl').textContent=dev?'A quién se le devuelve':'Quién presta';
+  document.getElementById('prest-destino-lbl').textContent=dev?'Quién devuelve':'A quién se le presta';
+  if(!editPrestKey) document.getElementById('prest-guardar-btn').textContent=dev?'Guardar devolución':'Guardar préstamo';
+};
+
+window.guardarPrestamo=async()=>{
+  const datos={
+    tipo:document.getElementById('prest-tipo').value,
+    fecha:document.getElementById('prest-fecha').value||today(),
+    persona:document.getElementById('prest-persona').value.trim().toUpperCase(),
+    destino:document.getElementById('prest-destino').value,
+    moneda:document.getElementById('prest-moneda').value,
+    monto:parseFloat(document.getElementById('prest-monto').value)||0,
+    forma:document.getElementById('prest-forma').value,
+    motivo:document.getElementById('prest-motivo').value.trim(),
+    obs:document.getElementById('prest-obs').value.trim(),
+  };
+  if(!datos.persona||!datos.monto){ showAlert('alert-prest','Completá la persona y el monto','err'); return; }
+  try{
+    if(editPrestKey){
+      const {key:_k,...orig}=prestamos.find(p=>p.key===editPrestKey)||{};
+      await fbSet('prestamos/'+editPrestKey,{...orig,...datos,ts:Date.now()});
+      showAlert('alert-prest','✓ Cambios guardados','ok');
+    }else{
+      await fbPush('prestamos',{...datos,ts:Date.now()});
+      showAlert('alert-prest',datos.tipo==='devolucion'?'✓ Devolución guardada':'✓ Préstamo guardado','ok');
+    }
+    limpiarPrestamo();
+    await recargarTodo();
+  }catch(e){ showAlert('alert-prest','Error al guardar','err'); }
+};
+
+window.limpiarPrestamo=()=>{
+  editPrestKey=null;
+  ['prest-persona','prest-monto','prest-motivo','prest-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('prest-fecha').value=today();
+  document.getElementById('prest-tipo').value='prestamo';
+  document.getElementById('prest-destino').value='U1';
+  document.getElementById('prest-moneda').value='ARS';
+  document.getElementById('prest-forma').value='Transferencia';
+  document.getElementById('prest-form-title').textContent='Nuevo registro';
+  document.getElementById('prest-cancelar-btn').textContent='Limpiar';
+  onPrestTipoChange();
+};
+
+window.editarPrestamo=key=>{
+  const p=prestamos.find(x=>x.key===key); if(!p) return;
+  editPrestKey=key;
+  document.getElementById('prest-tipo').value=p.tipo||'prestamo';
+  document.getElementById('prest-fecha').value=p.fecha||'';
+  document.getElementById('prest-persona').value=p.persona||'';
+  document.getElementById('prest-destino').value=p.destino||'U1';
+  document.getElementById('prest-moneda').value=p.moneda||'ARS';
+  document.getElementById('prest-monto').value=p.monto||'';
+  document.getElementById('prest-forma').value=p.forma||'Transferencia';
+  document.getElementById('prest-motivo').value=p.motivo||'';
+  document.getElementById('prest-obs').value=p.obs||'';
+  onPrestTipoChange();
+  document.getElementById('prest-form-title').textContent='Editando registro';
+  document.getElementById('prest-guardar-btn').textContent='Guardar cambios';
+  document.getElementById('prest-cancelar-btn').textContent='Cancelar';
+  document.getElementById('prest-form-title').scrollIntoView({behavior:'smooth',block:'center'});
+};
+
+window.eliminarPrestamo=key=>{
+  confirmDelete(async()=>{
+    await fbRemove('prestamos/'+key);
+    if(editPrestKey===key) limpiarPrestamo();
+    await recargarTodo();
+  });
+};
+
+// Saldos: por destino y moneda, y por persona+destino+moneda
+function calcularPrestamos(){
+  const porDestino={}, porPersona={};
+  prestamos.forEach(p=>{
+    const m=Number(p.monto)||0, mon=p.moneda||'ARS', d=p.destino||'U1', per=p.persona||'—';
+    const signo=p.tipo==='devolucion'?-1:1;
+    const kd=d+'|'+mon;
+    porDestino[kd]=porDestino[kd]||{destino:d,moneda:mon,prestado:0,devuelto:0};
+    const kp=per+'|'+d+'|'+mon;
+    porPersona[kp]=porPersona[kp]||{persona:per,destino:d,moneda:mon,prestado:0,devuelto:0};
+    if(signo>0){ porDestino[kd].prestado+=m; porPersona[kp].prestado+=m; }
+    else{ porDestino[kd].devuelto+=m; porPersona[kp].devuelto+=m; }
+  });
+  return {porDestino:Object.values(porDestino),porPersona:Object.values(porPersona)};
+}
+
+function renderPrestamosResumen(){
+  const cont=document.getElementById('prest-resumen');
+  if(!prestamos.length){ cont.innerHTML='<div class="empty"><div class="empty-icon">🤝</div>Sin préstamos cargados</div>'; return; }
+  const {porDestino,porPersona}=calcularPrestamos();
+  const colores={U1:'var(--blue)',U4:'var(--purple)',U5:'var(--green)',U6:'var(--amber)'};
+  const destinos=['U1','U4','U5','U6'].filter(d=>porDestino.some(x=>x.destino===d));
+  const tarjetas=destinos.map(d=>{
+    const filas=porDestino.filter(x=>x.destino===d).sort((a,b)=>a.moneda.localeCompare(b.moneda));
+    return `<div style="background:var(--bg3);padding:14px;border-radius:var(--radius-xs);border-left:3px solid ${colores[d]}">
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase">${PREST_DESTINOS[d]} · debe</div>
+      ${filas.map(x=>`<div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:${colores[d]}">${fmtMon(x.prestado-x.devuelto,x.moneda)}</div>
+      <div style="font-size:10px;color:var(--text3)">prestado ${fmtMon(x.prestado,x.moneda)} · devuelto ${fmtMon(x.devuelto,x.moneda)}</div>`).join('')}
+    </div>`;
+  }).join('');
+  const filasPer=porPersona.sort((a,b)=>a.persona.localeCompare(b.persona)||a.destino.localeCompare(b.destino)||a.moneda.localeCompare(b.moneda));
+  const th='padding:5px 6px;border-bottom:1px solid var(--border)';
+  cont.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px">${tarjetas}</div>
+    <div style="font-size:13px;font-weight:500;margin-bottom:8px">Saldo por persona</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="color:var(--text3);font-size:10px;text-transform:uppercase">
+        <th style="text-align:left;${th}">Persona</th>
+        <th style="text-align:left;${th}">A quién</th>
+        <th style="text-align:right;${th}">Prestado</th>
+        <th style="text-align:right;${th}">Devuelto</th>
+        <th style="text-align:right;${th}">Pendiente</th>
+      </tr>
+      ${filasPer.map(x=>{
+        const pend=x.prestado-x.devuelto;
+        return `<tr>
+          <td style="${th};font-weight:500">${escP(x.persona)}</td>
+          <td style="${th};font-size:11px">${PREST_DESTINOS[x.destino]||escP(x.destino)}</td>
+          <td style="${th};text-align:right;font-family:'DM Mono',monospace">${fmtMon(x.prestado,x.moneda)}</td>
+          <td style="${th};text-align:right;font-family:'DM Mono',monospace;color:var(--green)">${fmtMon(x.devuelto,x.moneda)}</td>
+          <td style="${th};text-align:right;font-family:'DM Mono',monospace;font-weight:500;color:${pend>0?'var(--amber)':'var(--text3)'}">${fmtMon(pend,x.moneda)}</td>
+        </tr>`;
+      }).join('')}
+    </table></div>`;
+}
+
+window.renderPrestamosList=function(){
+  const cont=document.getElementById('prest-list');
+  // opciones del filtro de persona, armadas con los datos
+  const selPer=document.getElementById('filtro-prest-persona');
+  const actual=selPer.value;
+  const personas=[...new Set(prestamos.map(p=>p.persona).filter(Boolean))].sort();
+  selPer.innerHTML='<option value="">Todas</option>'+personas.map(p=>`<option value="${escP(p)}">${escP(p)}</option>`).join('');
+  if(personas.includes(actual)) selPer.value=actual;
+  const fd=document.getElementById('filtro-prest-destino').value;
+  const fp=selPer.value;
+  const data=prestamos.filter(p=>(!fd||p.destino===fd)&&(!fp||p.persona===fp))
+    .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||((b.ts||0)-(a.ts||0)));
+  if(!data.length){ cont.innerHTML='<div class="empty"><div class="empty-icon">🤝</div>Sin registros</div>'; return; }
+  const th='padding:5px 6px;border-bottom:1px solid var(--border)';
+  cont.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <tr style="color:var(--text3);font-size:10px;text-transform:uppercase">
+      <th style="text-align:left;${th}">Fecha</th>
+      <th style="text-align:left;${th}">Tipo</th>
+      <th style="text-align:left;${th}">Persona</th>
+      <th style="text-align:left;${th}">Unidad</th>
+      <th style="text-align:right;${th}">Monto</th>
+      <th style="text-align:left;${th}">Para qué</th>
+      <th style="${th}"></th>
+    </tr>
+    ${data.map(p=>{
+      const dev=p.tipo==='devolucion';
+      return `<tr>
+        <td style="${th};font-family:'DM Mono',monospace;color:var(--text3);font-size:11px">${escP(p.fecha)}</td>
+        <td style="${th}"><span class="badge ${dev?'b-u5':'b-u6'}">${dev?'Devolución':'Préstamo'}</span></td>
+        <td style="${th};font-weight:500">${escP(p.persona)}</td>
+        <td style="${th}"><span class="badge ${UBADGE[p.destino]||''}">${PREST_CORTO[p.destino]||escP(p.destino)}</span></td>
+        <td style="${th};text-align:right;font-family:'DM Mono',monospace;color:${dev?'var(--green)':'var(--amber)'}">${dev?'−':''}${fmtMon(Number(p.monto)||0,p.moneda)}</td>
+        <td style="${th};font-size:11px;color:var(--text3)">${escP([p.motivo,p.forma,p.obs].filter(Boolean).join(' · '))||'—'}</td>
+        <td style="${th};white-space:nowrap">
+          <button class="btn-edit btn-sm" onclick="editarPrestamo('${p.key}')">✎</button>
+          <button class="btn-del btn-sm" onclick="eliminarPrestamo('${p.key}')">✕</button>
+        </td>
+      </tr>`;
+    }).join('')}
+  </table></div>`;
+};
+
+function renderPrestamos(){
+  if(!document.getElementById('prest-fecha').value) document.getElementById('prest-fecha').value=today();
+  renderPrestamosResumen();
+  renderPrestamosList();
+}
+
+window.exportarPrestamosExcel=()=>{
+  if(!prestamos.length){ showAlert('alert-prest','No hay registros para exportar','err'); return; }
+  const regs=prestamos.slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')).map(p=>({
+    Fecha:p.fecha, Tipo:p.tipo==='devolucion'?'Devolución':'Préstamo', Persona:p.persona,
+    Unidad:PREST_DESTINOS[p.destino]||p.destino, Moneda:p.moneda||'ARS',
+    Monto:(p.tipo==='devolucion'?-1:1)*(Number(p.monto)||0), Como:p.forma||'', 'Para qué':p.motivo||'', Observaciones:p.obs||''
+  }));
+  const saldos=calcularPrestamos().porPersona.sort((a,b)=>a.persona.localeCompare(b.persona)||a.destino.localeCompare(b.destino)||a.moneda.localeCompare(b.moneda)).map(x=>({
+    Persona:x.persona, Unidad:PREST_DESTINOS[x.destino]||x.destino, Moneda:x.moneda,
+    Prestado:x.prestado, Devuelto:x.devuelto, Pendiente:x.prestado-x.devuelto
+  }));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(saldos),'Saldos');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(regs),'Registros');
+  XLSX.writeFile(wb,`AJS_Prestamos_${today()}.xlsx`);
+};
+
+onValue(prestamosRef,snap=>{
+  prestamos=[]; snap.forEach(c=>{ prestamos.push({...c.val(),key:c.key}); });
+  if(document.getElementById('panel-prestamos').classList.contains('active')) renderPrestamos();
+});
 
 // INIT
 document.getElementById('n-fecha').value=today();
