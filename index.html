@@ -1003,7 +1003,7 @@ tr:hover td{background:var(--bg3)}
       </div>
     </div>
     <div id="prest-anticipo-fields" style="display:none">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Los dólares quedan a cuenta. Cada préstamo en pesos que esta persona cargue a <strong>Finca (U1)</strong> o <strong>Fernando · Caballos (U4)</strong> se descuenta solo, por orden de fecha, pasado a dólares con el dólar de abajo. Lo que no se use queda a cuenta.</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Los dólares quedan a cuenta. Cada préstamo en pesos que esta persona cargue a <strong>Finca (U1)</strong>, <strong>Fernando · Caballos (U4)</strong> o <strong>Propiedades (U6)</strong> se descuenta solo, por orden de fecha, pasado a dólares con el dólar de abajo. Lo que no se use queda a cuenta.</div>
       <div class="fg">
         <div class="field"><label>Quién da los dólares</label><input type="text" id="prest-de" list="prest-personas-de" placeholder="ej: FERNANDO"><datalist id="prest-personas-de"><option value="FERNANDO"><option value="ALBERTO"><option value="LI"><option value="PIPO"></datalist></div>
         <div class="field"><label>Dólar tomado ($ por US$ 1)</label><input type="number" id="prest-tc" placeholder="ej: 1400" min="0" inputmode="decimal"></div>
@@ -5028,7 +5028,8 @@ const fmtUSD=n=>'US$ '+(Math.round(n*100)/100).toLocaleString('es-AR',{minimumFr
 // por orden de fecha, los préstamos en pesos de esa persona a Finca (U1) o Caballos (U4)
 // con fecha igual o posterior a "desde". Cada peso cubierto se pasa a dólares con el dólar del anticipo.
 // Así la división caballos/finca sale sola, en la misma proporción en que se fueron cargando los préstamos.
-const ACUENTA_DESTINOS=['U4','U1'];
+const ACUENTA_DESTINOS=['U4','U1','U6'];
+const ACUENTA_INFO={U4:{lbl:'Fernando · Caballos',col:'var(--purple)'},U1:{lbl:'Finca',col:'var(--blue)'},U6:{lbl:'Propiedades',col:'var(--amber)'}};
 function calcularACuenta(){
   const lista=todosPrestamos();
   const anticipos=lista.filter(p=>p.tipo==='anticipo')
@@ -5040,7 +5041,7 @@ function calcularACuenta(){
   const res=anticipos.map(a=>{
     const usd=Number(a.monto)||0, tc=Number(a.tc)||0, desde=a.desde||a.fecha||'';
     let quedaARS=usd*tc;
-    const r={anticipo:a,usd,tc,pesos:{U4:0,U1:0},dol:{U4:0,U1:0},usos:[]};
+    const r={anticipo:a,usd,tc,pesos:{U4:0,U1:0,U6:0},dol:{U4:0,U1:0,U6:0},usos:[]};
     if(tc>0) for(const p of prest){
       if(quedaARS<=0.005) break;
       if((p.persona||'')!==(a.persona||'')||(p.fecha||'')<desde) continue;
@@ -5052,7 +5053,7 @@ function calcularACuenta(){
       r.pesos[p.destino]+=toma; r.dol[p.destino]+=toma/tc;
       const u={anticipo:a,prestamo:p,pesos:toma,usd:toma/tc}; r.usos.push(u); usos.push(u);
     }
-    r.usadoUSD=r.dol.U4+r.dol.U1;
+    r.usadoUSD=r.dol.U4+r.dol.U1+r.dol.U6;
     r.quedaUSD=Math.max(0,usd-r.usadoUSD);
     return r;
   });
@@ -5195,7 +5196,6 @@ function renderACuenta(){
   if(!anticipos.length){ cont.innerHTML=''; return; }
   cont.innerHTML=anticipos.map(r=>{
     const a=r.anticipo, pct=r.usd?Math.min(100,r.usadoUSD/r.usd*100):0;
-    const pU4=r.usadoUSD?Math.round(r.dol.U4/r.usadoUSD*100):0, pU1=r.usadoUSD?100-pU4:0;
     const fila=(lbl,usd,ars,col,pc)=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0">
         <span style="color:var(--text2)"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${col};margin-right:6px"></span>${lbl}${pc!==null?` <span style="color:var(--text3)">(${pc}%)</span>`:''}</span>
         <span style="font-family:'DM Mono',monospace;font-weight:500;text-align:right">${fmtUSD(usd)} <span style="color:var(--text3);font-weight:400;font-size:10px">${fmt(ars)}</span></span></div>`;
@@ -5206,11 +5206,9 @@ function renderACuenta(){
       </div>
       <div style="font-size:11px;color:var(--text3);margin:3px 0 10px">Dólar tomado: ${fmt(r.tc)} · equivale a ${fmt(r.usd*r.tc)}${a.origen?` · Origen: <span style="color:var(--text2)">${escP(a.origen)}</span>`:''} · descuenta préstamos desde ${escP(a.desde||a.fecha)}</div>
       <div style="height:8px;background:var(--bg);border-radius:4px;overflow:hidden;display:flex;margin-bottom:8px">
-        <div style="width:${r.usd?r.dol.U4/r.usd*100:0}%;background:var(--purple)"></div>
-        <div style="width:${r.usd?r.dol.U1/r.usd*100:0}%;background:var(--blue)"></div>
+        ${ACUENTA_DESTINOS.map(d=>`<div style="width:${r.usd?r.dol[d]/r.usd*100:0}%;background:${ACUENTA_INFO[d].col}"></div>`).join('')}
       </div>
-      ${fila('Fernando · Caballos',r.dol.U4,r.pesos.U4,'var(--purple)',r.usadoUSD?pU4:null)}
-      ${fila('Finca',r.dol.U1,r.pesos.U1,'var(--blue)',r.usadoUSD?pU1:null)}
+      ${ACUENTA_DESTINOS.filter(d=>d!=='U6'||r.dol.U6>0).map(d=>fila(ACUENTA_INFO[d].lbl,r.dol[d],r.pesos[d],ACUENTA_INFO[d].col,r.usadoUSD?Math.round(r.dol[d]/r.usadoUSD*100):null)).join('')}
       <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:6px 0 0;margin-top:4px;border-top:1px solid var(--border)">
         <span style="font-weight:500">Queda a cuenta</span>
         <span style="font-family:'DM Mono',monospace;font-weight:500;color:${r.quedaUSD>0.005?'var(--green)':'var(--text3)'}">${fmtUSD(r.quedaUSD)} <span style="color:var(--text3);font-weight:400;font-size:10px">${fmt(r.quedaUSD*r.tc)}</span></span>
@@ -5294,14 +5292,14 @@ window.renderPrestamosList=function(){
       if(esAnt){
         const r=usoAnt(p.key);
         det=escP([`De ${p.de||'—'}`,`dólar ${fmt(Number(p.tc)||0)}`,p.origen?`origen: ${p.origen}`:'',p.motivo,p.obs].filter(Boolean).join(' · '))
-          +(r?`<br><span style="color:var(--teal)">Caballos ${fmtUSD(r.dol.U4)} · Finca ${fmtUSD(r.dol.U1)} · queda ${fmtUSD(r.quedaUSD)}</span>`:'');
+          +(r?`<br><span style="color:var(--teal)">Caballos ${fmtUSD(r.dol.U4)} · Finca ${fmtUSD(r.dol.U1)}${r.dol.U6>0?` · Propiedades ${fmtUSD(r.dol.U6)}`:''} · queda ${fmtUSD(r.quedaUSD)}</span>`:'');
       }else if(ac.cubierto[p.key]>0.005){
         const usd=ac.usos.filter(u=>u.prestamo.key===p.key).reduce((t,u)=>t+u.usd,0);
         det+=(det?'<br>':'')+`<span style="color:var(--teal)">Cubierto con dólares a cuenta: ${fmt(ac.cubierto[p.key])} (${fmtUSD(usd)})</span>`;
       }
       return `<tr>
         <td style="${th}">
-          <div><span style="font-weight:500">${escP(p.persona)}</span> ${esAnt?'<span class="badge b-teal">Caballos + Finca</span>':`<span class="badge ${UBADGE[p.destino]||''}">${PREST_CORTO[p.destino]||escP(p.destino)}</span>`}</div>
+          <div><span style="font-weight:500">${escP(p.persona)}</span> ${esAnt?'<span class="badge b-teal">Caballos · Finca · Propiedades</span>':`<span class="badge ${UBADGE[p.destino]||''}">${PREST_CORTO[p.destino]||escP(p.destino)}</span>`}</div>
           <div style="margin-top:3px"><span class="badge ${t.badge}">${t.label}</span>${p.auto?' <span class="badge b-teal">Automático</span>':''} <span style="font-family:'DM Mono',monospace;color:var(--text3);font-size:10px">${escP(p.fecha)}</span></div>
           ${det?`<div style="font-size:10px;color:var(--text3);margin-top:3px">${det}</div>`:''}
         </td>
@@ -5332,7 +5330,8 @@ window.exportarPrestamosExcel=()=>{
   const ac=calcularACuenta();
   const aCuenta=ac.anticipos.map(r=>({Fecha:r.anticipo.fecha,'Quién da':r.anticipo.de||'','Quién recibe':r.anticipo.persona,'Origen de la plata':r.anticipo.origen||'',
     'US$ dados':r.usd,'Dólar tomado':r.tc,'US$ caballos':Math.round(r.dol.U4*100)/100,'$ caballos':Math.round(r.pesos.U4),
-    'US$ finca':Math.round(r.dol.U1*100)/100,'$ finca':Math.round(r.pesos.U1),'US$ queda a cuenta':Math.round(r.quedaUSD*100)/100}));
+    'US$ finca':Math.round(r.dol.U1*100)/100,'$ finca':Math.round(r.pesos.U1),
+    'US$ propiedades':Math.round(r.dol.U6*100)/100,'$ propiedades':Math.round(r.pesos.U6),'US$ queda a cuenta':Math.round(r.quedaUSD*100)/100}));
   const descuentos=ac.usos.map(u=>({'Fecha préstamo':u.prestamo.fecha,Unidad:PREST_DESTINOS[u.prestamo.destino],'Para qué':u.prestamo.motivo||'',
     '$ descontados':Math.round(u.pesos),'US$ descontados':Math.round(u.usd*100)/100,'Dólares a cuenta del':u.anticipo.fecha}));
   const saldos=calcularPrestamos().porPersona.map(x=>{
