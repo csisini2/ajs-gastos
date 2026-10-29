@@ -2501,15 +2501,14 @@ function renderDash(){
   // Tarjetas por método de pago: cada bolsillo muestra ingresos/gastos/saldo separados
   const todosMetodos=[...METODOS_CUENTA,...METODOS_TARJETA];
   const cardsHTML=todosMetodos.map(m=>{
+    if(!all.some(r=>r.metodo===m)) return '';
     const movs=allCtrl.filter(r=>r.metodo===m);
-    if(!movs.length) return '';
     const esTC=METODOS_TARJETA.includes(m);
 
     if(esTC){
       // para tarjetas usamos calcularCicloTarjeta (descuenta los pagos de resumen)
       const{deudaTotal,aPagar,proximoResumen,vencActual,diasParaVenc}=calcularCicloTarjeta(m);
       // si nunca se usó la tarjeta, no mostrar
-      if(deudaTotal<=0&&aPagar<=0&&proximoResumen<=0&&!movs.length) return '';
       const colorTC=deudaTotal>0?'var(--red)':'var(--green)';
       // texto de vencimiento
       let vencHTML='';
@@ -3448,7 +3447,8 @@ function saldoBolsillo(metodo){
   // pendientes: lo que está comprometido pero todavía no salió/entró
   const gastoPend=pendientes.filter(r=>r.tipo==='gasto').reduce((a,r)=>a+r.monto,0);
   const ingPend=pendientes.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+r.monto,0);
-  return{ingresos:ing,gastos:gas,saldo:ing-gas,gastoPend,ingPend,movs};
+  const usada=movs.length>0||getAllMovimientos().some(r=>r.metodo===metodo);
+  return{ingresos:ing,gastos:gas,saldo:ing-gas,gastoPend,ingPend,movs,usada};
 }
 
 // Total disponible = suma de todos los bolsillos (sin contar tarjetas)
@@ -3460,8 +3460,8 @@ function totalDisponible(){
 function renderBolsillos(){
   const cont=document.getElementById('bolsillos-list');
   cont.innerHTML=METODOS_CUENTA.map(m=>{
-    const{ingresos,gastos,saldo,gastoPend,ingPend,movs}=saldoBolsillo(m);
-    if(!movs.length) return '';
+    const{ingresos,gastos,saldo,gastoPend,ingPend,movs,usada}=saldoBolsillo(m);
+    if(!usada) return '';
     const color=saldo>=0?'var(--green)':'var(--red)';
     const ultimos=movs.slice().sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).slice(0,3);
     return`<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${color};border-radius:var(--radius);padding:12px 14px;margin-bottom:8px">
@@ -3477,7 +3477,7 @@ function renderBolsillos(){
         </div>
       </div>
       ${gastoPend>0?`<div style="font-size:11px;color:var(--amber);margin-bottom:6px">⚠ Saldo proyectado tras pendientes: ${fmt(saldo-gastoPend+ingPend)}</div>`:''}
-      <div style="font-size:11px;color:var(--text3)">Últimos: ${ultimos.map(r=>`${r.fecha} ${r.tipo==='ingreso'?'+':'−'}${fmt(r.monto)} ${r.detalle.slice(0,20)}`).join(' · ')}</div>
+      <div style="font-size:11px;color:var(--text3)">${!ultimos.length?'Sin movimientos desde '+fmtFechaCorta(inicioControl()):''}${ultimos.length?'Últimos: ':''}${ultimos.map(r=>`${r.fecha} ${r.tipo==='ingreso'?'+':'−'}${fmt(r.monto)} ${r.detalle.slice(0,20)}`).join(' · ')}</div>
     </div>`;
   }).join('')||'<div class="empty"><div class="empty-icon">💰</div>Sin movimientos en bolsillos todavía</div>';
 }
