@@ -337,6 +337,11 @@ tr:hover td{background:var(--bg3)}
     <div class="alert-banner-title">📌 Notas importantes</div>
     <div id="notas-banner-list"></div>
   </div>
+  <div id="control-inicio-bar" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:11px;color:var(--text3);margin:0 0 8px">
+    <span>Saldos de cuentas y tarjetas desde <strong id="control-inicio-lbl" style="color:var(--text2)">29/10/2026</strong></span>
+    <input type="date" id="control-inicio-input" style="width:auto;padding:3px 6px;font-size:11px;display:none">
+    <button class="btn-edit btn-sm" id="control-inicio-btn" onclick="toggleInicioControl()">cambiar</button>
+  </div>
   <div class="metrics" id="metrics-row">
     <div class="metric"><div class="m-lbl">cargando</div><div class="m-val" style="color:var(--text3)">—</div></div>
     <div class="metric"><div class="m-lbl">cargando</div><div class="m-val" style="color:var(--text3)">—</div></div>
@@ -1730,7 +1735,7 @@ async function recargarTodo(){
     if(fn[id]) fn[id]();
 
     // 2) El resto en paralelo por HTTPS, sin bloquear
-    const [re,li,em,ca,ins,ad,ta,no,fi,cu,la,rt,db2,sf,va,pr,pc]=await Promise.all([
+    const [re,li,em,ca,ins,ad,ta,no,fi,cu,la,rt,db2,sf,va,pr,pc,cc]=await Promise.all([
       traer('remitos').catch(()=>null), traer('liquidaciones').catch(()=>null),
       traer('empleados').catch(()=>null), traer('caballos').catch(()=>null),
       traer('insumos').catch(()=>null), traer('adelantos').catch(()=>null),
@@ -1738,7 +1743,7 @@ async function recargarTodo(){
       traer('fijos').catch(()=>null), traer('cuotas').catch(()=>null),
       traer('liqAzucar').catch(()=>null), traer('retiros').catch(()=>null),
       traer('descBolsas').catch(()=>null), traer('stockFuturo').catch(()=>null),
-      traer('ventasAzucar').catch(()=>null), traer('prestamos').catch(()=>null), traer('prestamosConfig').catch(()=>null)
+      traer('ventasAzucar').catch(()=>null), traer('prestamos').catch(()=>null), traer('prestamosConfig').catch(()=>null), traer('cuentasConfig').catch(()=>null)
     ]);
     remitos=objAArray(re); remitos.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
     liquidaciones=objAArray(li); liquidaciones.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
@@ -1757,6 +1762,7 @@ async function recargarTodo(){
     ventasAzucar=objAArray(va);
     prestamos=objAArray(pr);
     prestConfig=pc||{};
+    cuentasConfig=cc||{};
 
     if(typeof updateBalance==='function') updateBalance();
     if(fn[id]) fn[id]();
@@ -1801,7 +1807,7 @@ let registros=[], remitos=[], liquidaciones=[], empleados=[], caballos=[], insum
 let maqGasoil=[], maqMant=[];
 let tarjetas={}, notas=[], fijos=[], cuotas=[];
 let liqAzucar=[], retiros=[], descBolsas=[], stockFuturo=[], ventasAzucar=[];
-let prestamos=[], prestConfig={};
+let prestamos=[], prestConfig={}, cuentasConfig={};
 let histFiltro='todos', tipoActual='gasto', editKey=null, kilosKey=null, vistaHist='cards', notasFiltro='activas';
 
 // HELPERS
@@ -2481,17 +2487,21 @@ function renderProyeccion30(){
 }
 
 function renderDash(){
+  renderInicioControl();
   const all=getAllMovimientos();
+  const allCtrl=all.filter(enControl);
   const gastos=all.filter(r=>r.tipo==='gasto');
   const ingresos=all.filter(r=>r.tipo==='ingreso');
-  const totalG=gastos.reduce((a,r)=>a+r.monto,0);
-  const totalI=ingresos.reduce((a,r)=>a+r.monto,0);
-  const pendG=gastos.filter(r=>r.estado==='Pendiente').reduce((a,r)=>a+r.monto,0);
-  const pendI=ingresos.filter(r=>r.estado==='Pendiente').reduce((a,r)=>a+r.monto,0);
+  const gastosCtrl=allCtrl.filter(r=>r.tipo==='gasto');
+  const ingresosCtrl=allCtrl.filter(r=>r.tipo==='ingreso');
+  const totalG=gastosCtrl.reduce((a,r)=>a+r.monto,0);
+  const totalI=ingresosCtrl.reduce((a,r)=>a+r.monto,0);
+  const pendG=gastosCtrl.filter(r=>r.estado==='Pendiente').reduce((a,r)=>a+r.monto,0);
+  const pendI=ingresosCtrl.filter(r=>r.estado==='Pendiente').reduce((a,r)=>a+r.monto,0);
   // Tarjetas por método de pago: cada bolsillo muestra ingresos/gastos/saldo separados
   const todosMetodos=[...METODOS_CUENTA,...METODOS_TARJETA];
   const cardsHTML=todosMetodos.map(m=>{
-    const movs=all.filter(r=>r.metodo===m);
+    const movs=allCtrl.filter(r=>r.metodo===m);
     if(!movs.length) return '';
     const esTC=METODOS_TARJETA.includes(m);
 
@@ -2543,8 +2553,8 @@ function renderDash(){
     </div>`;
   }).filter(x=>x).join('');
   document.getElementById('metrics-row').innerHTML=cardsHTML||`
-    <div class="metric"><div class="m-lbl">Total gastos</div><div class="m-val" style="color:var(--red)">${fmt(totalG)}</div><div class="m-sub">${gastos.length} mov.</div></div>
-    <div class="metric"><div class="m-lbl">Total ingresos</div><div class="m-val" style="color:var(--green)">${fmt(totalI)}</div><div class="m-sub">${ingresos.length} mov.</div></div>
+    <div class="metric"><div class="m-lbl">Total gastos</div><div class="m-val" style="color:var(--red)">${fmt(totalG)}</div><div class="m-sub">${gastosCtrl.length} mov.</div></div>
+    <div class="metric"><div class="m-lbl">Total ingresos</div><div class="m-val" style="color:var(--green)">${fmt(totalI)}</div><div class="m-sub">${ingresosCtrl.length} mov.</div></div>
     <div class="metric"><div class="m-lbl">Balance</div><div class="m-val" style="color:${totalI-totalG>=0?'var(--green)':'var(--red)'}">${fmt(totalI-totalG)}</div><div class="m-sub">&nbsp;</div></div>
     <div class="metric"><div class="m-lbl">Pend. cobrar</div><div class="m-val" style="color:var(--amber)">${fmt(pendI)}</div><div class="m-sub">pagar: ${fmt(pendG)}</div></div>
   `;
@@ -2665,13 +2675,14 @@ function renderMovsCuenta(){
 
   // Calcular resumen
   const esTC = METODOS_TARJETA.includes(metodo);
-  const conf = movs.filter(r=>r.estado==='Pagado'||r.estado==='Cobrado');
+  const movsCtrl = movs.filter(enControl);
+  const conf = movsCtrl.filter(r=>r.estado==='Pagado'||r.estado==='Cobrado');
   const ing = conf.filter(r=>r.tipo==='ingreso').reduce((a,r)=>a+r.monto,0);
   const gas = conf.filter(r=>r.tipo==='gasto').reduce((a,r)=>a+r.monto,0);
-  const pend = movs.filter(r=>r.estado==='Pendiente').reduce((a,r)=>a+r.monto,0);
+  const pend = movsCtrl.filter(r=>r.estado==='Pendiente').reduce((a,r)=>a+r.monto,0);
   let resumen = `${movs.length} movimientos`;
   if(!esTC){
-    resumen += ` · Ingresos ${fmt(ing)} · Gastos ${fmt(gas)} · Saldo ${fmt(ing-gas)}`;
+    resumen += ` · Desde ${fmtFechaCorta(inicioControl())}: Ingresos ${fmt(ing)} · Gastos ${fmt(gas)} · Saldo ${fmt(ing-gas)}`;
   } else {
     const { deudaTotal, aPagar } = calcularCicloTarjeta(metodo);
     resumen += ` · A pagar ${fmt(aPagar)} · Debe ${fmt(Math.max(0,deudaTotal))}`;
@@ -3402,9 +3413,33 @@ const METODOS_CUENTA=['Efectivo','Transferencia','Mercado Pago','Cuenta corrient
 // Métodos que son tarjetas de crédito (deuda)
 const METODOS_TARJETA=['TC American','TC Visa','TC Mastercard Carlos','TC Visa Carlos'];
 
-// Calcula saldo neto de un método (suma ingresos, resta gastos)
+// ── INICIO DEL CONTROL: los saldos de cuentas y tarjetas cuentan solo desde esta fecha.
+// No borra nada: los movimientos anteriores siguen en el historial.
+function inicioControl(){ return cuentasConfig.inicio||'2026-10-29'; }
+function enControl(r){ return (r.fecha||'')>=inicioControl(); }
+function fmtFechaCorta(f){ const [y,m,d]=(f||'').split('-'); return d?`${d}/${m}/${y}`:f; }
+function renderInicioControl(){
+  const lbl=document.getElementById('control-inicio-lbl'); if(lbl) lbl.textContent=fmtFechaCorta(inicioControl());
+  const inp=document.getElementById('control-inicio-input'); if(inp&&inp.style.display==='none') inp.value=inicioControl();
+}
+window.toggleInicioControl=async()=>{
+  const inp=document.getElementById('control-inicio-input');
+  const btn=document.getElementById('control-inicio-btn');
+  if(inp.style.display==='none'){ inp.value=inicioControl(); inp.style.display=''; btn.textContent='guardar'; return; }
+  const v=inp.value;
+  if(!v){ alert('Elegí una fecha'); return; }
+  try{
+    await fbSet('cuentasConfig',{inicio:v});
+    cuentasConfig={inicio:v};
+    inp.style.display='none'; btn.textContent='cambiar';
+    renderInicioControl(); updateBalance(); renderDash();
+    if(document.getElementById('panel-bolsillos').classList.contains('active')){ renderBolsillos(); renderTarjetas(); }
+  }catch(e){ alert('No se pudo guardar: '+e.message); }
+};
+
+// Calcula saldo neto de un método (suma ingresos, resta gastos) — solo desde el inicio del control
 function saldoBolsillo(metodo){
-  const movs=getAllMovimientos().filter(r=>r.metodo===metodo);
+  const movs=getAllMovimientos().filter(r=>r.metodo===metodo&&enControl(r));
   // solo los confirmados (Pagado/Cobrado) afectan el saldo real
   const confirmados=movs.filter(r=>r.estado==='Pagado'||r.estado==='Cobrado');
   const pendientes=movs.filter(r=>r.estado==='Pendiente');
@@ -3454,11 +3489,11 @@ function calcularCicloTarjeta(nombreTC){
   const config=tarjetas[nombreTC]||{};
   const hoy=today();
   // movimientos: gastos hechos con esta tarjeta
-  const movs=getAllMovimientos().filter(r=>r.metodo===nombreTC&&r.tipo==='gasto');
+  const movs=getAllMovimientos().filter(r=>r.metodo===nombreTC&&r.tipo==='gasto'&&enControl(r));
   // pagos: registros tipo "Pago tarjeta" que apunten a esta TC
-  const pagos=getAllMovimientos().filter(r=>r.tipo==='gasto'&&r.cat==='Pago tarjeta'&&r.subdet===nombreTC).reduce((a,r)=>a+r.monto,0);
+  const pagos=getAllMovimientos().filter(r=>r.tipo==='gasto'&&r.cat==='Pago tarjeta'&&r.subdet===nombreTC&&enControl(r)).reduce((a,r)=>a+r.monto,0);
   // ajustes: saldados a mano, NO salen de ningún bolsillo (el gasto ya está cargado aparte)
-  const ajustesArr=Object.values(config.ajustes||{});
+  const ajustesArr=Object.values(config.ajustes||{}).filter(a=>!a.fecha||a.fecha>=inicioControl());
   const ajustes=ajustesArr.reduce((a,r)=>a+(Number(r.monto)||0),0);
 
   const cierreAct=config.cierreAct||'';   // fecha real de cierre del resumen actual
@@ -5239,6 +5274,12 @@ window.exportarPrestamosExcel=()=>{
   XLSX.writeFile(wb,`AJS_Prestamos_${today()}.xlsx`);
 };
 
+onValue(ref(db,'cuentasConfig'),snap=>{
+  cuentasConfig=snap.val()||{};
+  if(typeof updateBalance==='function') updateBalance();
+  if(document.getElementById('panel-dashboard').classList.contains('active')) renderDash();
+  if(document.getElementById('panel-bolsillos').classList.contains('active')){ renderBolsillos(); renderTarjetas(); }
+});
 onValue(ref(db,'prestamosConfig'),snap=>{
   prestConfig=snap.val()||{};
   if(document.getElementById('panel-prestamos').classList.contains('active')) renderPrestamos();
