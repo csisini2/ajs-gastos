@@ -1027,6 +1027,10 @@ tr:hover td{background:var(--bg3)}
       </div>
       <div class="field"><label>Para qué</label><input type="text" id="prest-motivo" placeholder="ej: gastos fijos de noviembre"></div>
     </div>
+    <div class="field" id="prest-cat-field"><label>Categoría</label>
+      <input type="text" id="prest-cat" list="prest-cats" placeholder="ej: AJS ALFA, Flete, Campo/Sueldo">
+      <datalist id="prest-cats"></datalist>
+    </div>
     <div class="field"><label>Observaciones (opcional)</label><input type="text" id="prest-obs" placeholder="Notas"></div>
     <div class="row-btns">
       <button class="btn btn-primary" id="prest-guardar-btn" onclick="guardarPrestamo()">Guardar préstamo</button>
@@ -1047,6 +1051,7 @@ tr:hover td{background:var(--bg3)}
         <select id="filtro-prest-persona" onchange="renderPrestamosList()"><option value="">Todas</option></select>
       </div>
     </div>
+    <div id="prest-por-cat"></div>
     <div id="prest-list"></div>
   </div>
 </div>
@@ -5075,6 +5080,7 @@ window.onPrestTipoChange=()=>{
   document.getElementById('prest-anticipo-fields').style.display=esAnt?'':'none';
   document.getElementById('prest-destino-field').style.display=esAnt?'none':'';
   document.getElementById('prest-moneda-field').style.display=esAnt?'none':'';
+  document.getElementById('prest-cat-field').style.display=esAnt?'none':'';
   document.getElementById('prest-monto-lbl').textContent=esAnt?'Monto en dólares (US$)':'Monto';
   if(esAnt){
     document.getElementById('prest-moneda').value='USD';
@@ -5095,9 +5101,10 @@ window.guardarPrestamo=async()=>{
     forma:document.getElementById('prest-forma').value,
     motivo:document.getElementById('prest-motivo').value.trim(),
     obs:document.getElementById('prest-obs').value.trim(),
+    cat:document.getElementById('prest-cat').value.trim(),
   };
   if(datos.tipo==='anticipo'){
-    datos.moneda='USD'; datos.destino='';
+    datos.moneda='USD'; datos.destino=''; datos.cat='';
     datos.de=document.getElementById('prest-de').value.trim().toUpperCase();
     datos.tc=parseFloat(document.getElementById('prest-tc').value)||0;
     datos.origen=document.getElementById('prest-origen').value.trim();
@@ -5121,7 +5128,7 @@ window.guardarPrestamo=async()=>{
 
 window.limpiarPrestamo=()=>{
   editPrestKey=null;
-  ['prest-persona','prest-monto','prest-motivo','prest-obs','prest-de','prest-tc','prest-origen','prest-desde'].forEach(id=>document.getElementById(id).value='');
+  ['prest-persona','prest-monto','prest-motivo','prest-obs','prest-de','prest-tc','prest-origen','prest-desde','prest-cat'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('prest-fecha').value=today();
   document.getElementById('prest-tipo').value='prestamo';
   document.getElementById('prest-destino').value='U1';
@@ -5144,6 +5151,7 @@ window.editarPrestamo=key=>{
   document.getElementById('prest-forma').value=p.forma||'Transferencia';
   document.getElementById('prest-motivo').value=p.motivo||'';
   document.getElementById('prest-obs').value=p.obs||'';
+  document.getElementById('prest-cat').value=p.cat||'';
   document.getElementById('prest-de').value=p.de||'';
   document.getElementById('prest-tc').value=p.tc||'';
   document.getElementById('prest-origen').value=p.origen||'';
@@ -5273,6 +5281,8 @@ window.renderPrestamosList=function(){
   if(personas.includes(actual)) selPer.value=actual;
   const fd=document.getElementById('filtro-prest-destino').value;
   const fp=selPer.value;
+  renderPrestDatalistCats(lista);
+  renderPrestPorCategoria(lista.filter(p=>(!fd||p.destino===fd)&&(!fp||p.persona===fp)));
   const data=lista.filter(p=>(!fd||p.destino===fd||(p.tipo==='anticipo'&&ACUENTA_DESTINOS.includes(fd)))&&(!fp||p.persona===fp))
     .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||((b.ts||0)-(a.ts||0)));
   if(!data.length){ cont.innerHTML='<div class="empty"><div class="empty-icon">🤝</div>Sin registros</div>'; return; }
@@ -5288,7 +5298,7 @@ window.renderPrestamosList=function(){
     </tr>
     ${data.map(p=>{
       const t=tipoP(p.tipo), pone=t.signo>0, esAnt=p.tipo==='anticipo';
-      let det=escP([p.motivo,p.forma,p.obs].filter(Boolean).join(' · '));
+      let det=(p.cat?`<span class="badge b-per">${escP(p.cat)}</span> `:'')+escP([p.motivo,p.forma,p.obs].filter(Boolean).join(' · '));
       if(esAnt){
         const r=usoAnt(p.key);
         det=escP([`De ${p.de||'—'}`,`dólar ${fmt(Number(p.tc)||0)}`,p.origen?`origen: ${p.origen}`:'',p.motivo,p.obs].filter(Boolean).join(' · '))
@@ -5313,6 +5323,43 @@ window.renderPrestamosList=function(){
   </table></div>`;
 };
 
+// Categorías sugeridas: las mismas de los gastos + las ya usadas en préstamos
+function renderPrestDatalistCats(lista){
+  const dl=document.getElementById('prest-cats'); if(!dl) return;
+  const base=[...document.querySelectorAll('#n-cat option')].map(o=>o.value||o.textContent).filter(v=>v&&v!=='__otro__');
+  const usadas=lista.map(p=>p.cat).filter(Boolean);
+  dl.innerHTML=[...new Set([...usadas,...base])].map(c=>`<option value="${escP(c)}">`).join('');
+}
+// Suma de lo prestado por categoría (solo préstamos de la persona a la unidad), separado por moneda
+function renderPrestPorCategoria(lista){
+  const cont=document.getElementById('prest-por-cat'); if(!cont) return;
+  const prest=lista.filter(p=>p.tipo==='prestamo');
+  if(!prest.length){ cont.innerHTML=''; return; }
+  const grupos={};
+  prest.forEach(p=>{
+    const mon=p.moneda||'ARS', c=p.cat||'Sin categoría', k=mon+'|'+c;
+    grupos[k]=grupos[k]||{mon,cat:c,total:0,n:0,porU:{}};
+    const m=Number(p.monto)||0;
+    grupos[k].total+=m; grupos[k].n++;
+    grupos[k].porU[p.destino]=(grupos[k].porU[p.destino]||0)+m;
+  });
+  const th='padding:5px 6px;border-bottom:1px solid var(--border)';
+  const monedas=['ARS','USD'].filter(mon=>Object.values(grupos).some(g=>g.mon===mon));
+  cont.innerHTML=`<div style="font-size:13px;font-weight:500;margin:4px 0 6px">Prestado por categoría</div>
+    ${monedas.map(mon=>{
+      const filas=Object.values(grupos).filter(g=>g.mon===mon).sort((a,b)=>(a.cat==='Sin categoría')-(b.cat==='Sin categoría')||b.total-a.total);
+      const tot=filas.reduce((t,g)=>t+g.total,0);
+      return `<div style="overflow-x:auto;margin-bottom:12px"><table style="width:100%;min-width:0;border-collapse:collapse;font-size:12px">
+        <tr style="color:var(--text3);font-size:10px;text-transform:uppercase"><th style="text-align:left;${th}">Categoría ${mon==='USD'?'(US$)':'($)'}</th><th style="text-align:right;${th}">Total</th></tr>
+        ${filas.map(g=>`<tr><td style="${th}">
+            <div style="font-weight:500;${g.cat==='Sin categoría'?'color:var(--text3)':''}">${escP(g.cat)} <span style="font-weight:400;color:var(--text3);font-size:10px">· ${g.n} reg.</span></div>
+            <div style="font-size:10px;color:var(--text3)">${Object.entries(g.porU).map(([u,v])=>`${PREST_CORTO[u]||escP(u)} ${fmtMon(v,mon)}`).join(' · ')}</div>
+          </td><td style="${th};text-align:right;white-space:nowrap;font-family:'DM Mono',monospace;font-weight:500">${fmtMon(g.total,mon)} <div style="font-size:10px;color:var(--text3);font-weight:400">${tot?Math.round(g.total/tot*100):0}%</div></td></tr>`).join('')}
+        <tr><td style="${th};font-weight:500">Total</td><td style="${th};text-align:right;font-family:'DM Mono',monospace;font-weight:500">${fmtMon(tot,mon)}</td></tr>
+      </table></div>`;
+    }).join('')}`;
+}
+
 function renderPrestamos(){
   if(!document.getElementById('prest-fecha').value) document.getElementById('prest-fecha').value=today();
   renderPrestamosResumen();
@@ -5324,7 +5371,7 @@ window.exportarPrestamosExcel=()=>{
   const regs=todosPrestamos().slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')).map(p=>({
     Fecha:p.fecha, Tipo:tipoP(p.tipo).label, Persona:p.persona,
     Unidad:PREST_DESTINOS[p.destino]||p.destino, Moneda:p.moneda||'ARS',
-    Monto:p.tipo==='anticipo'?(Number(p.monto)||0):tipoP(p.tipo).signo*(Number(p.monto)||0), Como:p.forma||'', 'Para qué':p.motivo||'', Observaciones:p.obs||'',
+    Monto:p.tipo==='anticipo'?(Number(p.monto)||0):tipoP(p.tipo).signo*(Number(p.monto)||0), Como:p.forma||'', Categoría:p.cat||'', 'Para qué':p.motivo||'', Observaciones:p.obs||'',
     'Quién da':p.de||'', 'Dólar tomado':p.tc||'', 'Origen de la plata':p.origen||''
   }));
   const ac=calcularACuenta();
@@ -5342,6 +5389,13 @@ window.exportarPrestamosExcel=()=>{
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(saldos),'Saldos');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(regs),'Registros');
+  const pc={};
+  todosPrestamos().filter(p=>p.tipo==='prestamo').forEach(p=>{
+    const k=(p.moneda||'ARS')+'|'+(p.cat||'Sin categoría')+'|'+p.destino;
+    pc[k]=pc[k]||{Moneda:p.moneda||'ARS',Categoría:p.cat||'Sin categoría',Unidad:PREST_DESTINOS[p.destino]||p.destino,Total:0,Registros:0};
+    pc[k].Total+=Number(p.monto)||0; pc[k].Registros++;
+  });
+  if(Object.keys(pc).length) XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(Object.values(pc)),'Por categoría');
   if(aCuenta.length){
     XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(aCuenta),'Dólares a cuenta');
     XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(descuentos.length?descuentos:[{Nota:'Todavía no se descontó ningún préstamo'}]),'Descuentos');
