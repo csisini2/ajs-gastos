@@ -5285,15 +5285,15 @@ function renderPrestamosResumen(){
   const colores={U1:'var(--blue)',U4:'var(--purple)',U5:'var(--green)',U6:'var(--amber)'};
   const destinos=['U1','U4','U5','U6'].filter(d=>porDestino.some(x=>x.destino===d));
   const tarjetas=destinos.map(d=>{
-    const filas=porDestino.filter(x=>x.destino===d).sort((a,b)=>a.moneda.localeCompare(b.moneda));
+    // a quién le debe la unidad (saldo a favor de la persona) y quién le debe a la unidad (saldo en contra)
+    const cuentasU=porPersona.filter(x=>x.destino===d&&Math.round(x.saldo)!==0)
+      .sort((a,b)=>(b.saldo>0)-(a.saldo>0)||a.persona.localeCompare(b.persona)||a.moneda.localeCompare(b.moneda));
     return `<div style="background:var(--bg3);padding:14px;border-radius:var(--radius-xs);border-left:3px solid ${colores[d]}">
       <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">${PREST_DESTINOS[d]}</div>
-      ${filas.map(x=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0">
-          <span style="color:var(--text3)">Debe a la familia</span>
-          <span style="font-family:'DM Mono',monospace;font-weight:500;color:${x.debe>0?'var(--red)':'var(--text3)'}">${fmtMon(x.debe,x.moneda)}</span></div>
-        ${x.leDeben>0?`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0">
-          <span style="color:var(--text3)">Le deben a la unidad</span>
-          <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--green)">${fmtMon(x.leDeben,x.moneda)}</span></div>`:''}`).join('')}
+      ${cuentasU.length?cuentasU.map(x=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0">
+          <span style="color:var(--text3)">${x.saldo>0?`Le debe a <strong style="color:var(--text2)">${escP(x.persona)}</strong>`:`<strong style="color:var(--text2)">${escP(x.persona)}</strong> le debe`}</span>
+          <span style="font-family:'DM Mono',monospace;font-weight:500;color:${x.saldo>0?'var(--red)':'var(--green)'}">${fmtMon(Math.abs(x.saldo),x.moneda)}</span></div>`).join('')
+        :`<div style="font-size:12px;color:var(--text3);padding:2px 0">No le debe a nadie</div>`}
     </div>`;
   }).join('');
   const th='padding:5px 6px;border-bottom:1px solid var(--border)';
@@ -5553,10 +5553,15 @@ window.exportarPrestamosPDF=(soloPersona)=>{
     <td class="num ${x.saldo>0?'favor':x.saldo<0?'contra':''}">${fmtMon(Math.abs(x.saldo),x.moneda)}</td><td>${e(s2.txt)} — ${e(s2.det)}</td></tr>`;}).join('')}
   </table>
 
-  ${per?'':`<h3>Por unidad</h3>
-  <table><tr><th>Unidad</th><th>Moneda</th><th class="num">Debe a la familia</th><th class="num">Le deben a la unidad</th></tr>
-  ${porDestino.sort((a,b)=>a.destino.localeCompare(b.destino)||a.moneda.localeCompare(b.moneda)).map(x=>`<tr><td>${e(PREST_DESTINOS[x.destino]||x.destino)}</td><td>${x.moneda}</td><td class="num">${fmtMon(x.debe,x.moneda)}</td><td class="num">${fmtMon(x.leDeben,x.moneda)}</td></tr>`).join('')}
-  </table>`}
+  ${per?'':`<h3>Qué debe cada unidad y a quién</h3>
+  <table><tr><th>Unidad</th><th>Detalle</th><th class="num">Monto</th></tr>
+  ${['U1','U4','U5','U6'].filter(d=>porPersona.some(x=>x.destino===d)).map(d=>{
+    const cu=porPersona.filter(x=>x.destino===d&&Math.round(x.saldo)!==0).sort((a,b)=>(b.saldo>0)-(a.saldo>0)||a.persona.localeCompare(b.persona));
+    return cu.length?cu.map((x,i)=>`<tr><td>${i===0?`<b>${e(PREST_DESTINOS[d])}</b>`:''}</td><td>${x.saldo>0?`Le debe a ${e(x.persona)}`:`${e(x.persona)} le debe`}</td><td class="num ${x.saldo>0?'contra':'favor'}">${fmtMon(Math.abs(x.saldo),x.moneda)}</td></tr>`).join('')
+      :`<tr><td><b>${e(PREST_DESTINOS[d])}</b></td><td>No le debe a nadie</td><td class="num">—</td></tr>`;
+  }).join('')}
+  </table>
+`}
 
   ${ac.anticipos.length?`<h2>Dólares a cuenta</h2>
   ${ac.anticipos.map(r=>{const a=r.anticipo; return `<div class="box">
