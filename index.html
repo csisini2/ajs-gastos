@@ -965,7 +965,10 @@ tr:hover td{background:var(--bg3)}
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
       <div class="card-title" style="margin:0">🤝 Préstamos de la familia</div>
-      <button class="btn btn-ghost btn-sm" onclick="exportarPrestamosExcel()">📊 Excel</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="exportarPrestamosPDF()">📄 PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportarPrestamosExcel()">📊 Excel</button>
+      </div>
     </div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Cuenta corriente entre cada persona y cada unidad: lo que la persona le presta a la finca o a Fernando, lo que la unidad le presta o paga por ella, y las devoluciones de cada lado. Es un registro aparte: no suma como ingreso ni cambia los saldos de Bolsillos.</div>
     <div id="prest-acuenta"></div>
@@ -5408,6 +5411,103 @@ function renderPrestamos(){
   renderPrestamosResumen();
   renderPrestamosList();
 }
+
+// ── EXPORTAR PRÉSTAMOS A PDF (todo, sin filtros) ──
+window.exportarPrestamosPDF=()=>{
+  const lista=todosPrestamos();
+  if(!lista.length){ showAlert('alert-prest','No hay registros para exportar','err'); return; }
+  const {porDestino,porPersona}=calcularPrestamos();
+  const ac=calcularACuenta();
+  const e=escP;
+  const ff=f=>fmtFechaCorta(f||'');
+  // Total prestado por unidad y categoría
+  const prest=lista.filter(p=>p.tipo==='prestamo');
+  const porU={}, tot={ARS:0,USD:0};
+  prest.forEach(p=>{
+    const u=p.destino||'U1', mon=p.moneda||'ARS', m=Number(p.monto)||0;
+    const pc=prestCat(p), c=pc.cat||'Sin categoría';
+    porU[u]=porU[u]||{tot:{ARS:0,USD:0},cats:{}};
+    porU[u].tot[mon]+=m; tot[mon]+=m;
+    const k=c+'|'+mon;
+    porU[u].cats[k]=porU[u].cats[k]||{cat:c,mon,total:0,n:0,auto:false};
+    porU[u].cats[k].total+=m; porU[u].cats[k].n++; if(pc.auto) porU[u].cats[k].auto=true;
+  });
+  const montos=t=>[t.ARS?fmt(t.ARS):'',t.USD?fmtUSD(t.USD):''].filter(Boolean).join(' + ')||'—';
+  const orden=['U4','U1','U6','U5'].filter(u=>porU[u]);
+  const regs=lista.slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')||((a.ts||0)-(b.ts||0)));
+
+  const w=window.open('','_blank');
+  if(!w){ showAlert('alert-prest','El navegador bloqueó la ventana del PDF. Permití ventanas emergentes y probá de nuevo.','err'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>AJS - Préstamos de la familia ${today()}</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:30px;color:#1a1a1a;font-size:12px}
+    h1{font-size:20px;margin:0 0 4px} h2{font-size:14px;margin:22px 0 8px;border-bottom:2px solid #1a1a1a;padding-bottom:3px}
+    h3{font-size:12px;margin:12px 0 4px}
+    .sub{color:#666;font-size:11px;margin-bottom:12px} .nota{color:#666;font-size:10px;margin:2px 0 8px}
+    table{width:100%;border-collapse:collapse;margin-bottom:10px;page-break-inside:auto}
+    tr{page-break-inside:avoid}
+    th,td{border:1px solid #ccc;padding:4px 6px;text-align:left;font-size:10.5px;vertical-align:top}
+    th{background:#f0f0f0}
+    .num{text-align:right;font-family:monospace;white-space:nowrap}
+    .total-row{font-weight:bold;background:#f7f7f7}
+    .favor{color:#137a3a;font-weight:bold} .contra{color:#b42318;font-weight:bold}
+    .box{border:1px solid #ccc;border-radius:4px;padding:10px 12px;margin-bottom:10px;page-break-inside:avoid}
+    @media print{body{margin:12px}}
+  </style></head><body>
+  <h1>AJS — Préstamos de la familia</h1>
+  <div class="sub">Empresa familiar Sisini · Generado el ${ff(today())} · ${lista.length} registros</div>
+
+  <h2>Saldo por persona</h2>
+  <div class="nota">A favor: la unidad le debe a la persona. En contra: la persona le debe a la unidad.</div>
+  <table><tr><th>Persona</th><th>Unidad</th><th class="num">Puso</th><th class="num">Recibió / le cubrieron</th><th class="num">Saldo</th><th>Estado</th></tr>
+  ${porPersona.map(x=>{const s2=estadoSaldo(x.saldo,x.persona,x.destino,x.moneda);
+    return `<tr><td>${e(x.persona)}</td><td>${e(PREST_CORTO[x.destino]||x.destino)}</td><td class="num">${fmtMon(x.puso,x.moneda)}</td>
+    <td class="num">${fmtMon(x.recibio,x.moneda)}${x.cubiertoUSD>0?`<br><span style="font-size:9px;color:#666">incluye ${fmtUSD(x.cubiertoUSD)} a cuenta</span>`:''}</td>
+    <td class="num ${x.saldo>0?'favor':x.saldo<0?'contra':''}">${fmtMon(Math.abs(x.saldo),x.moneda)}</td><td>${e(s2.txt)} — ${e(s2.det)}</td></tr>`;}).join('')}
+  </table>
+
+  <h3>Por unidad</h3>
+  <table><tr><th>Unidad</th><th>Moneda</th><th class="num">Debe a la familia</th><th class="num">Le deben a la unidad</th></tr>
+  ${porDestino.sort((a,b)=>a.destino.localeCompare(b.destino)||a.moneda.localeCompare(b.moneda)).map(x=>`<tr><td>${e(PREST_DESTINOS[x.destino]||x.destino)}</td><td>${x.moneda}</td><td class="num">${fmtMon(x.debe,x.moneda)}</td><td class="num">${fmtMon(x.leDeben,x.moneda)}</td></tr>`).join('')}
+  </table>
+
+  ${ac.anticipos.length?`<h2>Dólares a cuenta</h2>
+  ${ac.anticipos.map(r=>{const a=r.anticipo; return `<div class="box">
+    <b>${e(a.de||'—')} le dio a ${e(a.persona)} ${fmtUSD(r.usd)} a cuenta</b> · ${ff(a.fecha)}<br>
+    <span style="color:#666;font-size:10.5px">Dólar tomado: ${fmt(r.tc)} · equivale a ${fmt(r.usd*r.tc)}${a.origen?` · Origen: ${e(a.origen)}`:''} · descuenta préstamos desde ${ff(a.desde||a.fecha)}</span>
+    <table style="margin-top:6px"><tr><th>Destino</th><th class="num">US$</th><th class="num">$</th><th class="num">%</th></tr>
+    ${ACUENTA_DESTINOS.filter(d=>d!=='U6'||r.dol.U6>0).map(d=>`<tr><td>${ACUENTA_INFO[d].lbl}</td><td class="num">${fmtUSD(r.dol[d])}</td><td class="num">${fmt(r.pesos[d])}</td><td class="num">${r.usadoUSD?Math.round(r.dol[d]/r.usadoUSD*100):0}%</td></tr>`).join('')}
+    <tr class="total-row"><td>Queda a cuenta</td><td class="num">${fmtUSD(r.quedaUSD)}</td><td class="num">${fmt(r.quedaUSD*r.tc)}</td><td></td></tr></table>
+    ${r.usos.length?`<div class="nota">Préstamos descontados: ${r.usos.map(u=>`${ff(u.prestamo.fecha)} ${e(PREST_CORTO[u.prestamo.destino])} ${e(u.prestamo.motivo||'')} ${fmt(u.pesos)} (${fmtUSD(u.usd)})`).join(' · ')}</div>`:''}
+  </div>`;}).join('')}`:''}
+
+  ${prest.length?`<h2>Total prestado por unidad y categoría</h2>
+  <div class="nota">Suma de lo que cada persona puso en cada unidad, sin restar devoluciones. Pesos y dólares por separado. (auto) = categoría deducida del texto.</div>
+  <table><tr><th>Unidad</th><th>Categoría</th><th class="num">Registros</th><th class="num">Total</th></tr>
+  ${orden.map(u=>{
+    const cats=Object.values(porU[u].cats).sort((a,b)=>(a.cat==='Sin categoría')-(b.cat==='Sin categoría')||a.mon.localeCompare(b.mon)||b.total-a.total);
+    return cats.map((g,i)=>`<tr><td>${i===0?`<b>Préstamo a ${e(PREST_CORTO[u]||u)}</b>`:''}</td><td>${e(g.cat)}${g.auto?' (auto)':''}</td><td class="num">${g.n}</td><td class="num">${fmtMon(g.total,g.mon)}</td></tr>`).join('')
+      +`<tr class="total-row"><td colspan="3">Subtotal ${e(PREST_CORTO[u]||u)}</td><td class="num">${montos(porU[u].tot)}</td></tr>`;
+  }).join('')}
+  <tr class="total-row"><td colspan="3">TOTAL PRESTADO</td><td class="num">${montos(tot)}</td></tr>
+  </table>`:''}
+
+  <h2>Todos los registros (${regs.length})</h2>
+  <table><tr><th>Fecha</th><th>Tipo</th><th>Persona</th><th>Unidad</th><th>Categoría</th><th>Detalle</th><th class="num">Monto</th></tr>
+  ${regs.map(p=>{const t=tipoP(p.tipo), esAnt=p.tipo==='anticipo', pc=prestCat(p);
+    const det=esAnt?[`De ${p.de||'—'}`,`dólar ${fmt(Number(p.tc)||0)}`,p.origen?`origen: ${p.origen}`:'',p.motivo,p.obs].filter(Boolean).join(' · ')
+      :[p.motivo,p.forma,p.obs].filter(Boolean).join(' · ');
+    const cub=ac.cubierto[p.key]>0.005?`<br><span style="font-size:9px;color:#666">cubierto con dólares a cuenta: ${fmt(ac.cubierto[p.key])}</span>`:'';
+    return `<tr><td style="white-space:nowrap">${ff(p.fecha)}</td><td>${e(t.label)}</td><td>${e(p.persona)}</td><td>${esAnt?'Caballos · Finca · Propiedades':e(PREST_CORTO[p.destino]||p.destino)}</td>
+      <td>${e(pc.cat||'')}${pc.auto?' (auto)':''}</td><td>${e(det)}${cub}</td>
+      <td class="num">${esAnt?fmtUSD(Number(p.monto)||0):(t.signo>0?'+':'−')+fmtMon(Number(p.monto)||0,p.moneda)}</td></tr>`;}).join('')}
+  </table>
+
+  <div style="margin-top:24px;font-size:10px;color:#999;text-align:center">AJS Gestión de Empresa — Documento generado automáticamente</div>
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`);
+  w.document.close();
+};
 
 window.exportarPrestamosExcel=()=>{
   if(!todosPrestamos().length){ showAlert('alert-prest','No hay registros para exportar','err'); return; }
