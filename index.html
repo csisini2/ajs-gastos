@@ -5259,6 +5259,19 @@ function resumenPorPersona(){
   ac.anticipos.forEach(r=>{ P(r.anticipo.persona).aCuenta.push(r); });
   return Object.values(per).sort((a,b)=>a.persona.localeCompare(b.persona));
 }
+// Dólares a cuenta agrupados por "La plata es de" (ej: Finca): cuánto puso y a qué se fue
+function resumenOrigenes(soloPersona){
+  const g={};
+  calcularACuenta().anticipos.forEach(r=>{
+    const a=r.anticipo;
+    if(soloPersona&&a.persona!==soloPersona&&a.de!==soloPersona) return;
+    const k=a.origenCat||'';
+    g[k]=g[k]||{cat:k,nombre:k?(ORIGEN_CAT[k]||k):'Sin especificar',usd:0,dol:{U4:0,U1:0,U6:0},pesos:{U4:0,U1:0,U6:0},queda:0,items:[]};
+    g[k].usd+=r.usd; g[k].queda+=r.quedaUSD; g[k].items.push(r);
+    ACUENTA_DESTINOS.forEach(d=>{ g[k].dol[d]+=r.dol[d]; g[k].pesos[d]+=r.pesos[d]; });
+  });
+  return Object.values(g);
+}
 const montosPM=t=>[t.ARS?fmt(t.ARS):'',t.USD?fmtUSD(t.USD):''].filter(Boolean).join(' + ')||'$0';
 function saldoPM(t){
   return ['ARS','USD'].filter(m=>Math.round(t[m])!==0).map(m=>({m,v:t[m],txt:(t[m]>0?'A favor ':'En contra ')+fmtMon(Math.abs(t[m]),m),color:t[m]>0?'var(--green)':'var(--red)'}));
@@ -5299,11 +5312,18 @@ function renderPrestamosResumen(){
       ${x.aCuenta.map(r=>`<div style="font-size:10px;color:var(--teal);margin-top:4px">💵 Recibió ${fmtUSD(r.usd)} a cuenta de ${escP(r.anticipo.de||'—')} · queda ${fmtUSD(r.quedaUSD)}</div>`).join('')}
     </div>`;
   }).join('');
+  const tarjetasOrig=resumenOrigenes().map(o=>`<div style="background:var(--bg3);padding:12px 14px;border-radius:var(--radius-xs);border-left:3px solid var(--amber)">
+      <div style="font-size:14px;font-weight:500">${escP(o.nombre.toUpperCase())}</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:6px">Dólares a cuenta · ${o.items.map(r=>escP([r.anticipo.origen,`vía ${r.anticipo.de||'—'} a ${r.anticipo.persona}`].filter(Boolean).join(', '))).join(' · ')}</div>
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0"><span style="color:var(--text3)">Puso</span><span style="font-family:'DM Mono',monospace;font-weight:500">${fmtUSD(o.usd)}</span></div>
+      ${ACUENTA_DESTINOS.filter(d=>o.dol[d]>0.005).map(d=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:1px 0"><span style="color:var(--text3)">→ ${ACUENTA_INFO[d].lbl}</span><span style="font-family:'DM Mono',monospace">${fmtUSD(o.dol[d])}</span></div>`).join('')}
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0 0;margin-top:3px;border-top:1px solid var(--border)"><span style="color:var(--text3)">Queda a cuenta</span><span style="font-family:'DM Mono',monospace;font-weight:500;color:${o.queda>0.005?'var(--green)':'var(--text3)'}">${fmtUSD(o.queda)}</span></div>
+    </div>`).join('');
   cont.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px">${tarjetas}</div>
     <div style="font-size:13px;font-weight:500;margin-bottom:4px">Qué prestó cada uno</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Con 📄 PDF sacás el informe de esa persona para mandárselo.</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px">${tarjetasPer}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px">${tarjetasPer}${tarjetasOrig}</div>
     <div style="font-size:13px;font-weight:500;margin-bottom:4px">Saldo por persona</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px"><span style="color:var(--green)">A favor</span>: la unidad le debe a la persona. <span style="color:var(--red)">En contra</span>: la persona le debe a la unidad.</div>
     <div style="overflow-x:auto"><table style="width:100%;min-width:0;border-collapse:collapse;font-size:12px">
@@ -5518,6 +5538,10 @@ window.exportarPrestamosPDF=(soloPersona)=>{
     <td class="num">${sal.length?sal.map(z=>`<span class="${z.v>0?'favor':'contra'}">${z.txt}</span>`).join('<br>'):'Saldado'}</td>
     <td>${x.unidades.map(u=>`${e(PREST_CORTO[u.destino]||u.destino)}: puso ${fmtMon(u.puso,u.moneda)}${Math.round(u.saldo)?` · ${u.saldo>0?'le deben':'debe'} ${fmtMon(Math.abs(u.saldo),u.moneda)}`:' · saldado'}`).join('<br>')}
     ${x.aCuenta.map(r=>`<br><span style="color:#666">Recibió ${fmtUSD(r.usd)} a cuenta de ${e(r.anticipo.de||'—')} · queda ${fmtUSD(r.quedaUSD)}</span>`).join('')}</td></tr>`;}).join('')}
+  ${resumenOrigenes(per).map(o=>`<tr><td><b>${e(o.nombre.toUpperCase())}</b><br><span style="color:#666;font-size:9.5px">dólares a cuenta</span></td><td class="num">${fmtUSD(o.usd)}</td>
+    <td class="num">Queda a cuenta ${fmtUSD(o.queda)}</td>
+    <td>${ACUENTA_DESTINOS.filter(d=>o.dol[d]>0.005).map(d=>`${ACUENTA_INFO[d].lbl}: ${fmtUSD(o.dol[d])} (${fmt(o.pesos[d])})`).join('<br>')||'Todavía no se usó'}
+    <br><span style="color:#666">${o.items.map(r=>e([r.anticipo.origen,`vía ${r.anticipo.de||'—'} a ${r.anticipo.persona}`].filter(Boolean).join(', '))).join(' · ')}</span></td></tr>`).join('')}
   </table>
 
   <h2>Saldo por persona y unidad</h2>
