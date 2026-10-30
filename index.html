@@ -1013,7 +1013,13 @@ tr:hover td{background:var(--bg3)}
       </div>
       <div class="fg">
         <div class="field"><label>De dónde sale la plata</label><input type="text" id="prest-origen" placeholder="ej: venta de la camioneta (año)"></div>
+        <div class="field"><label>La plata es de</label>
+          <select id="prest-origen-cat"><option value="">— elegir —</option><option value="U1">Finca (U1)</option><option value="U4">Caballos (U4)</option><option value="U5">Cochera (U5)</option><option value="U6">Propiedades (U6)</option><option value="Personal">Personal</option><option value="Otro">Otro</option></select>
+        </div>
+      </div>
+      <div class="fg">
         <div class="field"><label>Descontar préstamos desde</label><input type="date" id="prest-desde"></div>
+        <div></div>
       </div>
     </div>
     <div class="fg">
@@ -5036,6 +5042,9 @@ const fmtUSD=n=>'US$ '+(Math.round(n*100)/100).toLocaleString('es-AR',{minimumFr
 // por orden de fecha, los préstamos en pesos de esa persona a Finca (U1) o Caballos (U4)
 // con fecha igual o posterior a "desde". Cada peso cubierto se pasa a dólares con el dólar del anticipo.
 // Así la división caballos/finca sale sola, en la misma proporción en que se fueron cargando los préstamos.
+const ORIGEN_CAT={U1:'Finca',U4:'Caballos',U5:'Cochera',U6:'Propiedades',Personal:'Personal',Otro:'Otro'};
+// "venta de camioneta gris (Finca)"
+const origenTxt=a=>[a.origen||'',a.origenCat?`(${ORIGEN_CAT[a.origenCat]||a.origenCat})`:''].filter(Boolean).join(' ');
 const ACUENTA_DESTINOS=['U4','U1','U6'];
 const ACUENTA_INFO={U4:{lbl:'Fernando · Caballos',col:'var(--purple)'},U1:{lbl:'Finca',col:'var(--blue)'},U6:{lbl:'Propiedades',col:'var(--amber)'}};
 function calcularACuenta(){
@@ -5111,6 +5120,7 @@ window.guardarPrestamo=async()=>{
     datos.de=document.getElementById('prest-de').value.trim().toUpperCase();
     datos.tc=parseFloat(document.getElementById('prest-tc').value)||0;
     datos.origen=document.getElementById('prest-origen').value.trim();
+    datos.origenCat=document.getElementById('prest-origen-cat').value;
     datos.desde=document.getElementById('prest-desde').value||datos.fecha;
     if(!datos.tc){ showAlert('alert-prest','Poné el valor del dólar que se tomó','err'); return; }
   }
@@ -5132,6 +5142,7 @@ window.guardarPrestamo=async()=>{
 window.limpiarPrestamo=()=>{
   editPrestKey=null;
   ['prest-persona','prest-monto','prest-motivo','prest-obs','prest-de','prest-tc','prest-origen','prest-desde','prest-cat'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('prest-origen-cat').value='';
   document.getElementById('prest-cat').placeholder='Si la dejás vacía se deduce sola de "Para qué"';
   document.getElementById('prest-fecha').value=today();
   document.getElementById('prest-tipo').value='prestamo';
@@ -5161,6 +5172,7 @@ window.editarPrestamo=key=>{
   document.getElementById('prest-de').value=p.de||'';
   document.getElementById('prest-tc').value=p.tc||'';
   document.getElementById('prest-origen').value=p.origen||'';
+  document.getElementById('prest-origen-cat').value=p.origenCat||'';
   document.getElementById('prest-desde').value=p.desde||'';
   onPrestTipoChange();
   document.getElementById('prest-form-title').textContent='Editando registro';
@@ -5218,7 +5230,7 @@ function renderACuenta(){
         <div style="font-size:13px;font-weight:500">💵 ${escP(a.de||'—')} le dio a ${escP(a.persona)} ${fmtUSD(r.usd)} a cuenta</div>
         <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${escP(a.fecha)}</div>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin:3px 0 10px">Dólar tomado: ${fmt(r.tc)} · equivale a ${fmt(r.usd*r.tc)}${a.origen?` · Origen: <span style="color:var(--text2)">${escP(a.origen)}</span>`:''} · descuenta préstamos desde ${escP(a.desde||a.fecha)}</div>
+      <div style="font-size:11px;color:var(--text3);margin:3px 0 10px">Dólar tomado: ${fmt(r.tc)} · equivale a ${fmt(r.usd*r.tc)}${origenTxt(a)?` · Origen: <span style="color:var(--text2)">${escP(origenTxt(a))}</span>`:''} · descuenta préstamos desde ${escP(a.desde||a.fecha)}</div>
       <div style="height:8px;background:var(--bg);border-radius:4px;overflow:hidden;display:flex;margin-bottom:8px">
         ${ACUENTA_DESTINOS.map(d=>`<div style="width:${r.usd?r.dol[d]/r.usd*100:0}%;background:${ACUENTA_INFO[d].col}"></div>`).join('')}
       </div>
@@ -5230,6 +5242,26 @@ function renderACuenta(){
       <div style="font-size:10px;color:var(--text3);margin-top:4px">Usado ${Math.round(pct)}% · ${r.usos.length} préstamo${r.usos.length===1?'':'s'} descontado${r.usos.length===1?'':'s'}</div>
     </div>`;
   }).join('');
+}
+
+// Por persona: cuánto prestó (solo "Préstamo"), cuánto le devolvieron/cubrieron y el saldo, por moneda y por unidad
+function resumenPorPersona(){
+  const {porPersona}=calcularPrestamos();
+  const ac=calcularACuenta();
+  const per={};
+  const P=n=>per[n]=per[n]||{persona:n,presto:{ARS:0,USD:0},saldo:{ARS:0,USD:0},unidades:[],aCuenta:[],n:0};
+  todosPrestamos().forEach(p=>{
+    if(p.tipo==='anticipo') return;
+    const x=P(p.persona||'—'); x.n++;
+    if(p.tipo==='prestamo') x.presto[p.moneda||'ARS']+=Number(p.monto)||0;
+  });
+  porPersona.forEach(c=>{ const x=P(c.persona); x.saldo[c.moneda]+=c.saldo; x.unidades.push(c); });
+  ac.anticipos.forEach(r=>{ P(r.anticipo.persona).aCuenta.push(r); });
+  return Object.values(per).sort((a,b)=>a.persona.localeCompare(b.persona));
+}
+const montosPM=t=>[t.ARS?fmt(t.ARS):'',t.USD?fmtUSD(t.USD):''].filter(Boolean).join(' + ')||'$0';
+function saldoPM(t){
+  return ['ARS','USD'].filter(m=>Math.round(t[m])!==0).map(m=>({m,v:t[m],txt:(t[m]>0?'A favor ':'En contra ')+fmtMon(Math.abs(t[m]),m),color:t[m]>0?'var(--green)':'var(--red)'}));
 }
 
 function renderPrestamosResumen(){
@@ -5252,8 +5284,26 @@ function renderPrestamosResumen(){
     </div>`;
   }).join('');
   const th='padding:5px 6px;border-bottom:1px solid var(--border)';
+  const personas=resumenPorPersona();
+  const tarjetasPer=personas.map(x=>{
+    const sal=saldoPM(x.saldo);
+    return `<div style="background:var(--bg3);padding:12px 14px;border-radius:var(--radius-xs);border-left:3px solid var(--teal)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px">
+        <div style="font-size:14px;font-weight:500">${escP(x.persona)}</div>
+        <button class="btn-edit btn-sm" data-p="${escP(x.persona)}" onclick="exportarPrestamosPDF(this.dataset.p)">📄 PDF</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0"><span style="color:var(--text3)">Prestó</span><span style="font-family:'DM Mono',monospace;font-weight:500">${montosPM(x.presto)}</span></div>
+      ${sal.length?sal.map(z=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0"><span style="color:var(--text3)">Saldo</span><span style="font-family:'DM Mono',monospace;font-weight:500;color:${z.color}">${z.txt}</span></div>`).join('')
+        :`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0"><span style="color:var(--text3)">Saldo</span><span style="color:var(--text3)">Saldado</span></div>`}
+      <div style="font-size:10px;color:var(--text3);margin-top:4px;border-top:1px solid var(--border);padding-top:4px">${x.unidades.map(u=>`${PREST_CORTO[u.destino]||escP(u.destino)}: puso ${fmtMon(u.puso,u.moneda)}${Math.round(u.saldo)?` · ${u.saldo>0?'le deben':'debe'} ${fmtMon(Math.abs(u.saldo),u.moneda)}`:' · saldado'}`).join('<br>')}</div>
+      ${x.aCuenta.map(r=>`<div style="font-size:10px;color:var(--teal);margin-top:4px">💵 Recibió ${fmtUSD(r.usd)} a cuenta de ${escP(r.anticipo.de||'—')} · queda ${fmtUSD(r.quedaUSD)}</div>`).join('')}
+    </div>`;
+  }).join('');
   cont.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px">${tarjetas}</div>
+    <div style="font-size:13px;font-weight:500;margin-bottom:4px">Qué prestó cada uno</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Con 📄 PDF sacás el informe de esa persona para mandárselo.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px">${tarjetasPer}</div>
     <div style="font-size:13px;font-weight:500;margin-bottom:4px">Saldo por persona</div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px"><span style="color:var(--green)">A favor</span>: la unidad le debe a la persona. <span style="color:var(--red)">En contra</span>: la persona le debe a la unidad.</div>
     <div style="overflow-x:auto"><table style="width:100%;min-width:0;border-collapse:collapse;font-size:12px">
@@ -5308,7 +5358,7 @@ window.renderPrestamosList=function(){
       let det=(pc.cat?`<span class="badge b-per">${escP(pc.cat)}</span>${pc.auto?' <span class="badge b-teal" style="font-size:9px">auto</span>':''} `:'')+escP([p.motivo,p.forma,p.obs].filter(Boolean).join(' · '));
       if(esAnt){
         const r=usoAnt(p.key);
-        det=escP([`De ${p.de||'—'}`,`dólar ${fmt(Number(p.tc)||0)}`,p.origen?`origen: ${p.origen}`:'',p.motivo,p.obs].filter(Boolean).join(' · '))
+        det=escP([`De ${p.de||'—'}`,`dólar ${fmt(Number(p.tc)||0)}`,origenTxt(p)?`origen: ${origenTxt(p)}`:'',p.motivo,p.obs].filter(Boolean).join(' · '))
           +(r?`<br><span style="color:var(--teal)">Caballos ${fmtUSD(r.dol.U4)} · Finca ${fmtUSD(r.dol.U1)}${r.dol.U6>0?` · Propiedades ${fmtUSD(r.dol.U6)}`:''} · queda ${fmtUSD(r.quedaUSD)}</span>`:'');
       }else if(ac.cubierto[p.key]>0.005){
         const usd=ac.usos.filter(u=>u.prestamo.key===p.key).reduce((t,u)=>t+u.usd,0);
@@ -5413,11 +5463,15 @@ function renderPrestamos(){
 }
 
 // ── EXPORTAR PRÉSTAMOS A PDF (todo, sin filtros) ──
-window.exportarPrestamosPDF=()=>{
-  const lista=todosPrestamos();
+window.exportarPrestamosPDF=(soloPersona)=>{
+  const per=typeof soloPersona==='string'&&soloPersona?soloPersona:'';
+  const lista=todosPrestamos().filter(p=>!per||p.persona===per||(p.tipo==='anticipo'&&p.de===per));
   if(!lista.length){ showAlert('alert-prest','No hay registros para exportar','err'); return; }
-  const {porDestino,porPersona}=calcularPrestamos();
-  const ac=calcularACuenta();
+  const calc=calcularPrestamos();
+  const porDestino=calc.porDestino, porPersona=calc.porPersona.filter(x=>!per||x.persona===per);
+  const acAll=calcularACuenta();
+  const ac={...acAll,anticipos:acAll.anticipos.filter(r=>!per||r.anticipo.persona===per||r.anticipo.de===per)};
+  const personasRes=resumenPorPersona().filter(x=>!per||x.persona===per);
   const e=escP;
   const ff=f=>fmtFechaCorta(f||'');
   // Total prestado por unidad y categoría
@@ -5438,7 +5492,7 @@ window.exportarPrestamosPDF=()=>{
 
   const w=window.open('','_blank');
   if(!w){ showAlert('alert-prest','El navegador bloqueó la ventana del PDF. Permití ventanas emergentes y probá de nuevo.','err'); return; }
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>AJS - Préstamos de la familia ${today()}</title>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>AJS - Préstamos ${per?'de '+e(per):'de la familia'} ${today()}</title>
   <style>
     body{font-family:Arial,sans-serif;margin:30px;color:#1a1a1a;font-size:12px}
     h1{font-size:20px;margin:0 0 4px} h2{font-size:14px;margin:22px 0 8px;border-bottom:2px solid #1a1a1a;padding-bottom:3px}
@@ -5454,10 +5508,19 @@ window.exportarPrestamosPDF=()=>{
     .box{border:1px solid #ccc;border-radius:4px;padding:10px 12px;margin-bottom:10px;page-break-inside:avoid}
     @media print{body{margin:12px}}
   </style></head><body>
-  <h1>AJS — Préstamos de la familia</h1>
+  <h1>AJS — Préstamos ${per?'de '+e(per):'de la familia'}</h1>
   <div class="sub">Empresa familiar Sisini · Generado el ${ff(today())} · ${lista.length} registros</div>
 
-  <h2>Saldo por persona</h2>
+  <h2>${per?'Resumen':'Qué prestó cada uno'}</h2>
+  <table><tr><th>Persona</th><th class="num">Prestó</th><th class="num">Saldo</th><th>Detalle por unidad</th></tr>
+  ${personasRes.map(x=>{const sal=saldoPM(x.saldo);
+    return `<tr><td><b>${e(x.persona)}</b></td><td class="num">${montosPM(x.presto)}</td>
+    <td class="num">${sal.length?sal.map(z=>`<span class="${z.v>0?'favor':'contra'}">${z.txt}</span>`).join('<br>'):'Saldado'}</td>
+    <td>${x.unidades.map(u=>`${e(PREST_CORTO[u.destino]||u.destino)}: puso ${fmtMon(u.puso,u.moneda)}${Math.round(u.saldo)?` · ${u.saldo>0?'le deben':'debe'} ${fmtMon(Math.abs(u.saldo),u.moneda)}`:' · saldado'}`).join('<br>')}
+    ${x.aCuenta.map(r=>`<br><span style="color:#666">Recibió ${fmtUSD(r.usd)} a cuenta de ${e(r.anticipo.de||'—')} · queda ${fmtUSD(r.quedaUSD)}</span>`).join('')}</td></tr>`;}).join('')}
+  </table>
+
+  <h2>Saldo por persona y unidad</h2>
   <div class="nota">A favor: la unidad le debe a la persona. En contra: la persona le debe a la unidad.</div>
   <table><tr><th>Persona</th><th>Unidad</th><th class="num">Puso</th><th class="num">Recibió / le cubrieron</th><th class="num">Saldo</th><th>Estado</th></tr>
   ${porPersona.map(x=>{const s2=estadoSaldo(x.saldo,x.persona,x.destino,x.moneda);
@@ -5466,15 +5529,15 @@ window.exportarPrestamosPDF=()=>{
     <td class="num ${x.saldo>0?'favor':x.saldo<0?'contra':''}">${fmtMon(Math.abs(x.saldo),x.moneda)}</td><td>${e(s2.txt)} — ${e(s2.det)}</td></tr>`;}).join('')}
   </table>
 
-  <h3>Por unidad</h3>
+  ${per?'':`<h3>Por unidad</h3>
   <table><tr><th>Unidad</th><th>Moneda</th><th class="num">Debe a la familia</th><th class="num">Le deben a la unidad</th></tr>
   ${porDestino.sort((a,b)=>a.destino.localeCompare(b.destino)||a.moneda.localeCompare(b.moneda)).map(x=>`<tr><td>${e(PREST_DESTINOS[x.destino]||x.destino)}</td><td>${x.moneda}</td><td class="num">${fmtMon(x.debe,x.moneda)}</td><td class="num">${fmtMon(x.leDeben,x.moneda)}</td></tr>`).join('')}
-  </table>
+  </table>`}
 
   ${ac.anticipos.length?`<h2>Dólares a cuenta</h2>
   ${ac.anticipos.map(r=>{const a=r.anticipo; return `<div class="box">
     <b>${e(a.de||'—')} le dio a ${e(a.persona)} ${fmtUSD(r.usd)} a cuenta</b> · ${ff(a.fecha)}<br>
-    <span style="color:#666;font-size:10.5px">Dólar tomado: ${fmt(r.tc)} · equivale a ${fmt(r.usd*r.tc)}${a.origen?` · Origen: ${e(a.origen)}`:''} · descuenta préstamos desde ${ff(a.desde||a.fecha)}</span>
+    <span style="color:#666;font-size:10.5px">Dólar tomado: ${fmt(r.tc)} · equivale a ${fmt(r.usd*r.tc)}${origenTxt(a)?` · Origen: ${e(origenTxt(a))}`:''} · descuenta préstamos desde ${ff(a.desde||a.fecha)}</span>
     <table style="margin-top:6px"><tr><th>Destino</th><th class="num">US$</th><th class="num">$</th><th class="num">%</th></tr>
     ${ACUENTA_DESTINOS.filter(d=>d!=='U6'||r.dol.U6>0).map(d=>`<tr><td>${ACUENTA_INFO[d].lbl}</td><td class="num">${fmtUSD(r.dol[d])}</td><td class="num">${fmt(r.pesos[d])}</td><td class="num">${r.usadoUSD?Math.round(r.dol[d]/r.usadoUSD*100):0}%</td></tr>`).join('')}
     <tr class="total-row"><td>Queda a cuenta</td><td class="num">${fmtUSD(r.quedaUSD)}</td><td class="num">${fmt(r.quedaUSD*r.tc)}</td><td></td></tr></table>
@@ -5495,7 +5558,7 @@ window.exportarPrestamosPDF=()=>{
   <h2>Todos los registros (${regs.length})</h2>
   <table><tr><th>Fecha</th><th>Tipo</th><th>Persona</th><th>Unidad</th><th>Categoría</th><th>Detalle</th><th class="num">Monto</th></tr>
   ${regs.map(p=>{const t=tipoP(p.tipo), esAnt=p.tipo==='anticipo', pc=prestCat(p);
-    const det=esAnt?[`De ${p.de||'—'}`,`dólar ${fmt(Number(p.tc)||0)}`,p.origen?`origen: ${p.origen}`:'',p.motivo,p.obs].filter(Boolean).join(' · ')
+    const det=esAnt?[`De ${p.de||'—'}`,`dólar ${fmt(Number(p.tc)||0)}`,origenTxt(p)?`origen: ${origenTxt(p)}`:'',p.motivo,p.obs].filter(Boolean).join(' · ')
       :[p.motivo,p.forma,p.obs].filter(Boolean).join(' · ');
     const cub=ac.cubierto[p.key]>0.005?`<br><span style="font-size:9px;color:#666">cubierto con dólares a cuenta: ${fmt(ac.cubierto[p.key])}</span>`:'';
     return `<tr><td style="white-space:nowrap">${ff(p.fecha)}</td><td>${e(t.label)}</td><td>${e(p.persona)}</td><td>${esAnt?'Caballos · Finca · Propiedades':e(PREST_CORTO[p.destino]||p.destino)}</td>
@@ -5515,10 +5578,10 @@ window.exportarPrestamosExcel=()=>{
     Fecha:p.fecha, Tipo:tipoP(p.tipo).label, Persona:p.persona,
     Unidad:PREST_DESTINOS[p.destino]||p.destino, Moneda:p.moneda||'ARS',
     Monto:p.tipo==='anticipo'?(Number(p.monto)||0):tipoP(p.tipo).signo*(Number(p.monto)||0), Como:p.forma||'', Categoría:prestCat(p).cat||'', 'Categoría automática':prestCat(p).auto?'Sí':'', 'Para qué':p.motivo||'', Observaciones:p.obs||'',
-    'Quién da':p.de||'', 'Dólar tomado':p.tc||'', 'Origen de la plata':p.origen||''
+    'Quién da':p.de||'', 'Dólar tomado':p.tc||'', 'Origen de la plata':p.origen||'', 'La plata es de':ORIGEN_CAT[p.origenCat]||''
   }));
   const ac=calcularACuenta();
-  const aCuenta=ac.anticipos.map(r=>({Fecha:r.anticipo.fecha,'Quién da':r.anticipo.de||'','Quién recibe':r.anticipo.persona,'Origen de la plata':r.anticipo.origen||'',
+  const aCuenta=ac.anticipos.map(r=>({Fecha:r.anticipo.fecha,'Quién da':r.anticipo.de||'','Quién recibe':r.anticipo.persona,'Origen de la plata':r.anticipo.origen||'','La plata es de':ORIGEN_CAT[r.anticipo.origenCat]||'',
     'US$ dados':r.usd,'Dólar tomado':r.tc,'US$ caballos':Math.round(r.dol.U4*100)/100,'$ caballos':Math.round(r.pesos.U4),
     'US$ finca':Math.round(r.dol.U1*100)/100,'$ finca':Math.round(r.pesos.U1),
     'US$ propiedades':Math.round(r.dol.U6*100)/100,'$ propiedades':Math.round(r.pesos.U6),'US$ queda a cuenta':Math.round(r.quedaUSD*100)/100}));
