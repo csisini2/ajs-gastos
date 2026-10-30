@@ -966,6 +966,7 @@ tr:hover td{background:var(--bg3)}
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
       <div class="card-title" style="margin:0">🤝 Préstamos de la familia</div>
       <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" id="prest-vista-btn" onclick="exportarPrestamosVista()">📸 PDF vista</button>
         <button class="btn btn-ghost btn-sm" onclick="exportarPrestamosPDF()">📄 PDF</button>
         <button class="btn btn-ghost btn-sm" onclick="exportarPrestamosExcel()">📊 Excel</button>
       </div>
@@ -976,7 +977,7 @@ tr:hover td{background:var(--bg3)}
   </div>
 
   <!-- NUEVO PRÉSTAMO / DEVOLUCIÓN -->
-  <div class="card">
+  <div class="card" id="prest-form-card">
     <div id="alert-prest"></div>
     <div class="card-title" id="prest-form-title">Nuevo registro</div>
     <div class="fg">
@@ -1050,7 +1051,7 @@ tr:hover td{background:var(--bg3)}
   <!-- HISTORIAL -->
   <div class="card">
     <div class="card-title">Historial</div>
-    <div class="fg">
+    <div class="fg" id="prest-filtros">
       <div class="field"><label>Unidad</label>
         <select id="filtro-prest-destino" onchange="renderPrestamosList()">
           <option value="">Todas</option><option value="U1">Finca (U1)</option><option value="U4">Fernando · Caballos (U4)</option><option value="U5">Cochera (U5)</option><option value="U6">Propiedades (U6)</option>
@@ -5481,6 +5482,57 @@ function renderPrestamos(){
   renderPrestamosResumen();
   renderPrestamosList();
 }
+
+// ── EXPORTAR PRÉSTAMOS A PDF "TAL CUAL SE VE" ──
+// Saca una imagen de la pestaña (sin el formulario ni los botones) y la arma en un PDF que se descarga.
+// Las librerías se cargan solo cuando se toca el botón.
+function cargarScript(src){
+  return new Promise((ok,err)=>{
+    if(document.querySelector(`script[src="${src}"]`)) return ok();
+    const sc=document.createElement('script'); sc.src=src; sc.onload=ok; sc.onerror=()=>err(new Error('No se pudo cargar '+src));
+    document.head.appendChild(sc);
+  });
+}
+window.exportarPrestamosVista=async()=>{
+  const btn=document.getElementById('prest-vista-btn');
+  const txt=btn.textContent; btn.disabled=true; btn.textContent='⏳ Generando...';
+  try{
+    await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    if(document.fonts&&document.fonts.ready) await document.fonts.ready;
+    const panel=document.getElementById('panel-prestamos');
+    const fondo=getComputedStyle(document.body).backgroundColor||'#0f0f0f';
+    const canvas=await html2canvas(panel,{
+      backgroundColor:fondo, scale:2, useCORS:true, logging:false,
+      windowWidth:document.documentElement.clientWidth,
+      ignoreElements:el=>el.id==='prest-form-card'||el.id==='prest-filtros'||(el.tagName==='BUTTON'&&panel.contains(el))||el.id==='alert-prest',
+      onclone:doc=>{
+        const pc=doc.getElementById('panel-prestamos');
+        const h=doc.createElement('div');
+        h.style.cssText='font-size:11px;color:#888;padding:4px 2px 10px';
+        h.textContent='AJS · Préstamos de la familia · '+fmtFechaCorta(today());
+        pc.insertBefore(h,pc.firstChild);
+      }
+    });
+    const {jsPDF}=window.jspdf;
+    // ancho de página = ancho de la pantalla; páginas de proporción A4, cortando la imagen
+    const pw=canvas.width/2*0.75, ph=pw*1.414;           // en puntos
+    const sliceH=Math.floor(canvas.width*1.414);           // alto de cada página en px del canvas
+    const pdf=new jsPDF({unit:'pt',format:[pw,ph],orientation:'portrait'});
+    for(let y=0,pag=0;y<canvas.height;y+=sliceH,pag++){
+      const h=Math.min(sliceH,canvas.height-y);
+      const c=document.createElement('canvas'); c.width=canvas.width; c.height=sliceH;
+      const cx=c.getContext('2d'); cx.fillStyle=fondo; cx.fillRect(0,0,c.width,c.height);
+      cx.drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
+      if(pag>0) pdf.addPage([pw,ph],'portrait');
+      pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,pw,ph);
+    }
+    pdf.save(`AJS_Prestamos_vista_${today()}.pdf`);
+  }catch(e){
+    console.warn(e);
+    showAlert('alert-prest','No se pudo generar el PDF de la vista. Revisá la conexión y probá de nuevo.','err');
+  }finally{ btn.disabled=false; btn.textContent=txt; }
+};
 
 // ── EXPORTAR PRÉSTAMOS A PDF (todo, sin filtros) ──
 window.exportarPrestamosPDF=(soloPersona)=>{
